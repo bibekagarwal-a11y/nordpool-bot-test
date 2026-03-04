@@ -2,32 +2,22 @@ import os
 import json
 from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 import requests
 import pandas as pd
 
 TZ = ZoneInfo("Europe/Paris")
 
-# Public endpoint (no auth) used by the Data Portal for day-ahead (and sometimes other auctions)
-PUBLIC_PRICES_URL = "https://dataportal-api.nordpoolgroup.com/api/DayAheadPrices"
+# Public Nord Pool dataportal APIs (no auth)
+PRICES_URL = "https://dataportal-api.nordpoolgroup.com/api/DayAheadPrices"
+INTRADAY_STATS_URL = "https://dataportal-api.nordpoolgroup.com/api/IntradayMarketStatistics"
 
-# Authenticated Market Data API v2 (often subscription-gated for intraday statistics like VWAP)
-V2_API_BASE = "https://data-api.nordpoolgroup.com"
-
-AREAS = os.environ.get("AREAS", "FR,GER")          # comma-separated
+AREAS = os.environ.get("AREAS", "FR,GER")   # comma-separated
 CURRENCY = os.environ.get("CURRENCY", "EUR")
 START_DATE = os.environ.get("START_DATE", "2026-03-01")
 
 OUT_DIR = "artifacts"
-
-# Optional: for VWAP (and possibly IDA if your access requires it)
-# Put this in GitHub Secrets: NORDPOOL_API_KEY
-NORDPOOL_API_KEY = os.environ.get("NORDPOOL_API_KEY", "").strip()
-
-# How to send the key: "bearer" or "x-api-key"
-# If you don't know, try bearer first; if still 401, try x-api-key.
-NORDPOOL_AUTH_MODE = os.environ.get("NORDPOOL_AUTH_MODE", "bearer").strip().lower()
 
 
 def paris_now() -> datetime:
@@ -58,7 +48,7 @@ def write_raw(prefix: str, market: str, d: date, payload: object):
 
 def parse_utc_iso_to_paris(iso_utc: Optional[str]) -> Optional[str]:
     """
-    Convert '2026-03-01T00:00:00Z' -> Europe/Paris ISO string (+01:00 or +02:00).
+    Convert '...Z' (UTC) to Europe/Paris ISO string (+01:00 or +02:00).
     DST handled automatically.
     """
     if not iso_utc or not isinstance(iso_utc, str):
@@ -74,12 +64,26 @@ def parse_utc_iso_to_paris(iso_utc: Optional[str]) -> Optional[str]:
     return dt.astimezone(TZ).isoformat()
 
 
-def fetch_public_prices(d: date, market: str) -> Optional[object]:
+def walk_json(x: Any):
+    """Yield every dict found in a nested JSON structure."""
+    if isinstance(x, dict):
+        yield x
+        for v in x.values():
+            yield from walk_json(v)
+    elif isinstance(x, list):
+        for it in x:
+            yield from walk_json(it)
+
+
+def fetch_prices(d: date, market: str) -> object:
     """
-    Fetch prices via public endpoint. Returns None if market unsupported (400/404).
+    Fetch auction prices via DayAheadPrices endpoint, using market codes discovered from the portal.
+    Examples discovered:
+      market=SIDC_IntradayAuction1/2/3
+      market=DayAhead (works for you already)
     """
     r = requests.get(
-        PUBLIC_PRICES_URL,
+        PRICES_URL,
         params={
             "date": d.isoformat(),
             "market": market,
@@ -88,18 +92,13 @@ def fetch_public_prices(d: date, market: str) -> Optional[object]:
         },
         timeout=60,
     )
-
-    if r.status_code in (400, 404):
-        print(f"[INFO] Market {market} not available via public endpoint (status {r.status_code}); skipping.")
-        return None
-
     r.raise_for_status()
     return r.json()
 
 
-def extract_price_rows(payload: Any) -> List[Dict[str, Any]]:
+def extract_auction_rows(payload: Any) -> List[Dict[str, Any]]:
     """
-    Works with the JSON shape you shared:
+    Expected shape (matches your DayAhead payload):
       deliveryDateCET
       market
       multiAreaEntries[]: { deliveryStart, deliveryEnd, entryPerArea{FR:.., GER:..}}
@@ -136,75 +135,81 @@ def extract_price_rows(payload: Any) -> List[Dict[str, Any]]:
     return rows
 
 
-def v2_session() -> requests.Session:
-    s = requests.Session()
-    s.headers.update({
-        "User-Agent": "Mozilla/5.0 (compatible; NordPoolBot/1.0)",
-        "Accept": "application/json",
-    })
-    if NORDPOOL_API_KEY:
-        if NORDPOOL_AUTH_MODE == "x-api-key":
-            s.headers.update({"x-api-key": NORDPOOL_API_KEY})
-        else:
-            s.headers.update({"Authorization": f"Bearer {NORDPOOL_API_KEY}"})
-    return s
-
-
-def fetch_v2_intraday_hourly_vwap(d: date) -> Optional[object]:
+def fetch_intraday_market_statistics(d: date, area: str) -> object:
     """
-    Intraday VWAP typically comes from Intraday statistics endpoints (subscription-gated).
-    We try Market Data API v2:
-      /api/v2/Intraday/HourlyStatistics/ByAreas
-    If unauthorized, we skip (do not fail the run).
+    Fetch continuous intraday market statistics for one area.
+    Discovered endpoints:
+      /api/IntradayMarketStatistics?date=YYYY-MM-DD&deliveryArea=FR|GER
     """
-    if not NORDPOOL_API_KEY:
-        print("[INFO] No NORDPOOL_API_KEY set; skipping continuous VWAP.")
-        return None
-
-    s = v2_session()
-    url = f"{V2_API_BASE}/api/v2/Intraday/HourlyStatistics/ByAreas"
-    r = s.get(url, params={"areas": AREAS, "date": d.isoformat()}, timeout=60)
-
-    if r.status_code in (401, 403):
-        print(f"[WARN] VWAP endpoint unauthorized ({r.status_code}). Skipping VWAP. "
-              f"Try setting NORDPOOL_AUTH_MODE to 'x-api-key' or ensure subscription.")
-        return None
-
-    # Some accounts may get 400 if params differ; skip rather than fail.
-    if r.status_code in (400, 404):
-        print(f"[WARN] VWAP endpoint not available ({r.status_code}). Skipping VWAP.")
-        return None
-
+    r = requests.get(
+        INTRADAY_STATS_URL,
+        params={"date": d.isoformat(), "deliveryArea": area},
+        timeout=60,
+    )
     r.raise_for_status()
     return r.json()
 
 
-def extract_vwap_rows(payload: Any) -> List[Dict[str, Any]]:
+def extract_vwap_rows(stats_payload: Any, area: str, d: date) -> List[Dict[str, Any]]:
     """
-    Expected v2 shape (approx):
-      [ { deliveryArea, hourlyStatistics: [ { deliveryStart, deliveryEnd, averagePrice, volume, ...}, ...] }, ... ]
-    We store VWAP in column vwap.
-    """
-    rows: List[Dict[str, Any]] = []
-    if not isinstance(payload, list):
-        return rows
+    The portal's IntradayMarketStatistics JSON schema can vary, so we extract VWAP robustly.
 
-    for area_obj in payload:
-        area = (area_obj.get("deliveryArea") or area_obj.get("area") or "").strip().upper()
-        stats = area_obj.get("hourlyStatistics") or area_obj.get("statistics") or []
-        for h in stats:
-            start_utc = h.get("deliveryStart")
-            end_utc = h.get("deliveryEnd")
-            rows.append({
-                "market": "IntradayContinuousVWAP",
-                "area": area,
-                "deliveryStartUTC": start_utc,
-                "deliveryEndUTC": end_utc,
-                "deliveryStartCET": parse_utc_iso_to_paris(start_utc),
-                "deliveryEndCET": parse_utc_iso_to_paris(end_utc),
-                "vwap": h.get("averagePrice"),
-                "volume": h.get("volume"),
-            })
+    Strategy:
+    - Traverse all dicts
+    - Find dicts that contain a time interval (deliveryStart/deliveryEnd OR start/end)
+    - And contain a numeric VWAP-like field (key contains 'vwap' case-insensitive)
+
+    This produces rows:
+      area, deliveryStartUTC/CET, deliveryEndUTC/CET, vwap
+    """
+    def pick_time(obj: Dict[str, Any]) -> Tuple[Optional[str], Optional[str]]:
+        start = obj.get("deliveryStart") or obj.get("startTime") or obj.get("start")
+        end = obj.get("deliveryEnd") or obj.get("endTime") or obj.get("end")
+        if isinstance(start, str) and isinstance(end, str):
+            return start, end
+        return None, None
+
+    def find_vwap_value(obj: Dict[str, Any]) -> Optional[float]:
+        # Prefer exact-ish keys first
+        preferred_keys = ["vwap", "VWAP", "vwapPrice", "vwap_price", "volumeWeightedAveragePrice"]
+        for k in preferred_keys:
+            if k in obj and isinstance(obj[k], (int, float)):
+                return float(obj[k])
+
+        # Then any key containing 'vwap'
+        for k, v in obj.items():
+            if isinstance(k, str) and "vwap" in k.lower() and isinstance(v, (int, float)):
+                return float(v)
+
+        return None
+
+    rows: List[Dict[str, Any]] = []
+    seen = set()
+
+    for obj in walk_json(stats_payload):
+        start_utc, end_utc = pick_time(obj)
+        if not start_utc or not end_utc:
+            continue
+
+        vwap = find_vwap_value(obj)
+        if vwap is None:
+            continue
+
+        key = (area, start_utc, end_utc, vwap)
+        if key in seen:
+            continue
+        seen.add(key)
+
+        rows.append({
+            "market": "IntradayContinuousVWAP",
+            "date_cet": d.isoformat(),
+            "area": area,
+            "deliveryStartUTC": start_utc,
+            "deliveryEndUTC": end_utc,
+            "deliveryStartCET": parse_utc_iso_to_paris(start_utc),
+            "deliveryEndCET": parse_utc_iso_to_paris(end_utc),
+            "vwap": vwap,
+        })
 
     return rows
 
@@ -213,9 +218,11 @@ def write_csv(rows: List[Dict[str, Any]], filename: str):
     if not rows:
         return
     df = pd.DataFrame(rows).drop_duplicates()
+
     sort_cols = [c for c in ["date_cet", "area", "deliveryStartCET"] if c in df.columns]
     if sort_cols:
         df = df.sort_values(sort_cols)
+
     df.to_csv(os.path.join(OUT_DIR, "tidy", filename), index=False)
 
 
@@ -226,36 +233,36 @@ def run(backfill: bool):
     yesterday = paris_now().date() - timedelta(days=1)
     dates = list(daterange(start, yesterday)) if backfill else [yesterday]
 
-    # Auction outputs
+    # Auctions
     all_dayahead: List[Dict[str, Any]] = []
     all_ida1: List[Dict[str, Any]] = []
     all_ida2: List[Dict[str, Any]] = []
     all_ida3: List[Dict[str, Any]] = []
 
-    # Continuous VWAP output
+    # Continuous VWAP
     all_vwap: List[Dict[str, Any]] = []
 
     auction_markets = [
         ("DayAhead", all_dayahead),
-        ("IntradayAuction1", all_ida1),
-        ("IntradayAuction2", all_ida2),
-        ("IntradayAuction3", all_ida3),
+        ("SIDC_IntradayAuction1", all_ida1),
+        ("SIDC_IntradayAuction2", all_ida2),
+        ("SIDC_IntradayAuction3", all_ida3),
     ]
 
-    for d in dates:
-        # Auctions (public if available)
-        for market, bucket in auction_markets:
-            payload = fetch_public_prices(d, market)
-            if payload is None:
-                continue
-            write_raw("prices", market, d, payload)
-            bucket.extend(extract_price_rows(payload))
+    target_areas = [a.strip().upper() for a in AREAS.split(",") if a.strip()]
 
-        # Continuous VWAP (v2, likely subscription)
-        vwap_payload = fetch_v2_intraday_hourly_vwap(d)
-        if vwap_payload is not None:
-            write_raw("intraday_vwap", "HourlyStatisticsByAreas", d, vwap_payload)
-            all_vwap.extend(extract_vwap_rows(vwap_payload))
+    for d in dates:
+        # Auction prices
+        for market, bucket in auction_markets:
+            payload = fetch_prices(d, market)
+            write_raw("prices", market, d, payload)
+            bucket.extend(extract_auction_rows(payload))
+
+        # Continuous VWAP (per area)
+        for area in target_areas:
+            stats = fetch_intraday_market_statistics(d, area)
+            write_raw("intraday_stats", f"{area}", d, stats)
+            all_vwap.extend(extract_vwap_rows(stats, area, d))
 
     write_csv(all_dayahead, "dayahead_prices.csv")
     write_csv(all_ida1, "ida1_prices.csv")
