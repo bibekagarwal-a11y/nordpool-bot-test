@@ -9,8 +9,8 @@ import pandas as pd
 
 TZ = ZoneInfo("Europe/Paris")
 
-# Public day-ahead endpoint (no auth)
-DAYAHEAD_PUBLIC_URL = "https://dataportal-api.nordpoolgroup.com/api/DayAheadPrices"
+# Public endpoint you are already using
+PUBLIC_PRICES_URL = "https://dataportal-api.nordpoolgroup.com/api/DayAheadPrices"
 
 AREAS = os.environ.get("AREAS", "FR,GER")   # comma-separated
 CURRENCY = os.environ.get("CURRENCY", "EUR")
@@ -39,50 +39,55 @@ def ensure_dirs():
     os.makedirs(os.path.join(OUT_DIR, "tidy"), exist_ok=True)
 
 
-def write_raw(prefix: str, d: date, payload: object):
-    p = os.path.join(OUT_DIR, "raw", f"{prefix}_{d.isoformat()}.json")
+def write_raw(prefix: str, market: str, d: date, payload: object):
+    p = os.path.join(OUT_DIR, "raw", f"{prefix}_{market}_{d.isoformat()}.json")
     with open(p, "w", encoding="utf-8") as f:
         json.dump(payload, f, ensure_ascii=False, indent=2)
 
 
 def parse_utc_iso_to_paris(iso_utc: Optional[str]) -> Optional[str]:
-    """
-    Convert '2026-03-01T00:00:00Z' -> '2026-03-01T01:00:00+01:00' (CET)
-    Handles DST automatically (CEST).
-    """
+    """Convert '...Z' (UTC) to Europe/Paris ISO string (+01/+02)."""
     if not iso_utc or not isinstance(iso_utc, str):
         return None
     s = iso_utc.strip()
     if not s:
         return None
-    # Support "Z"
     if s.endswith("Z"):
         s = s[:-1] + "+00:00"
     dt = datetime.fromisoformat(s)
     if dt.tzinfo is None:
-        # If it ever comes without tz, assume UTC (defensive)
         dt = dt.replace(tzinfo=ZoneInfo("UTC"))
     return dt.astimezone(TZ).isoformat()
 
 
-def fetch_dayahead(d: date) -> object:
+def fetch_public_prices(d: date, market: str) -> Optional[object]:
+    """
+    Fetch prices via public endpoint.
+    Returns None if the market isn't supported publicly (4xx other than rate limits).
+    """
     r = requests.get(
-        DAYAHEAD_PUBLIC_URL,
+        PUBLIC_PRICES_URL,
         params={
             "date": d.isoformat(),
-            "market": "DayAhead",
+            "market": market,
             "deliveryArea": AREAS,   # "FR,GER"
             "currency": CURRENCY,
         },
         timeout=60,
     )
+
+    # If Nord Pool doesn't support this market on the public endpoint, don't fail the job.
+    if r.status_code in (400, 404):
+        print(f"Market {market} not available via public endpoint (status {r.status_code}); skipping.")
+        return None
+
     r.raise_for_status()
     return r.json()
 
 
-def extract_dayahead_rows(payload: Any) -> List[Dict[str, Any]]:
+def extract_rows_from_payload(payload: Any) -> List[Dict[str, Any]]:
     """
-    Payload shape (confirmed from your sample):
+    Parse payload of the form:
       deliveryDateCET
       multiAreaEntries[]: { deliveryStart, deliveryEnd, entryPerArea{FR:.., GER:..}}
     Produces 1 row per (time-slice, area), with both UTC and CET/CEST timestamps.
@@ -91,7 +96,7 @@ def extract_dayahead_rows(payload: Any) -> List[Dict[str, Any]]:
 
     delivery_date_cet = payload.get("deliveryDateCET")
     currency = payload.get("currency", CURRENCY)
-    market = payload.get("market", "DayAhead")
+    market = payload.get("market", "Unknown")
 
     rows: List[Dict[str, Any]] = []
     for e in payload.get("multiAreaEntries", []) or []:
@@ -119,21 +124,17 @@ def extract_dayahead_rows(payload: Any) -> List[Dict[str, Any]]:
     return rows
 
 
-# --------------------------
-# Optional (paid) additions
-# --------------------------
-def try_fetch_ida_and_vwap(_d: date) -> List[Dict[str, Any]]:
-    """
-    IDA1/IDA2/IDA3 and continuous VWAP are typically behind paid APIs/subscriptions.
-    We intentionally do nothing unless you configure a working endpoint + auth.
+def write_csv(rows: List[Dict[str, Any]], filename: str):
+    if not rows:
+        return
+    df = pd.DataFrame(rows).drop_duplicates()
 
-    When you have credentials, we can implement:
-    - IDA1/IDA2/IDA3 prices (auction results)
-    - Intraday continuous VWAP (often from hourly statistics or trade feeds)
+    # Prefer CET ordering if present
+    sort_cols = [c for c in ["date_cet", "area", "deliveryStartCET"] if c in df.columns]
+    if sort_cols:
+        df = df.sort_values(sort_cols)
 
-    Return extra rows to append to CSV(s).
-    """
-    return []
+    df.to_csv(os.path.join(OUT_DIR, "tidy", filename), index=False)
 
 
 def run(backfill: bool):
@@ -143,39 +144,36 @@ def run(backfill: bool):
     yesterday = paris_now().date() - timedelta(days=1)
     dates = list(daterange(start, yesterday)) if backfill else [yesterday]
 
-    dayahead_rows: List[Dict[str, Any]] = []
-    extra_rows: List[Dict[str, Any]] = []
+    all_dayahead: List[Dict[str, Any]] = []
+    all_ida1: List[Dict[str, Any]] = []
+    all_ida2: List[Dict[str, Any]] = []
+    all_ida3: List[Dict[str, Any]] = []
+
+    markets = [
+        ("DayAhead", all_dayahead),
+        ("IntradayAuction1", all_ida1),
+        ("IntradayAuction2", all_ida2),
+        ("IntradayAuction3", all_ida3),
+    ]
 
     for d in dates:
-        payload = fetch_dayahead(d)
-        write_raw("dayahead", d, payload)
-        dayahead_rows.extend(extract_dayahead_rows(payload))
+        for market, bucket in markets:
+            payload = fetch_public_prices(d, market)
+            if payload is None:
+                continue
+            write_raw("prices", market, d, payload)
+            bucket.extend(extract_rows_from_payload(payload))
 
-        # Optional (won't error)
-        extra_rows.extend(try_fetch_ida_and_vwap(d))
-
-    # Write tidy outputs
-    if dayahead_rows:
-        df = pd.DataFrame(dayahead_rows).drop_duplicates()
-        df = df.sort_values(["date_cet", "area", "deliveryStartCET"])
-        df.to_csv(os.path.join(OUT_DIR, "tidy", "dayahead_prices.csv"), index=False)
-        df.to_json(
-            os.path.join(OUT_DIR, "tidy", "dayahead_prices.json"),
-            orient="records",
-            force_ascii=False,
-            indent=2,
-        )
-
-    if extra_rows:
-        df2 = pd.DataFrame(extra_rows).drop_duplicates()
-        df2.to_csv(os.path.join(OUT_DIR, "tidy", "extra_markets.csv"), index=False)
+    write_csv(all_dayahead, "dayahead_prices.csv")
+    write_csv(all_ida1, "ida1_prices.csv")
+    write_csv(all_ida2, "ida2_prices.csv")
+    write_csv(all_ida3, "ida3_prices.csv")
 
 
 def main():
     enforce_noon = os.environ.get("ENFORCE_NOON_PARIS", "1") == "1"
     backfill = os.environ.get("BACKFILL", "0") == "1"
 
-    # For scheduled runs: only run at noon Paris time
     if enforce_noon and not backfill and not is_noon_paris():
         print("Not 12:00 Europe/Paris; exiting.")
         return
