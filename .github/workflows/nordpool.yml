@@ -1,0 +1,47 @@
+name: Nord Pool Bot
+
+on:
+  workflow_dispatch:
+    inputs:
+      backfill:
+        description: "Backfill from START_DATE to yesterday"
+        required: false
+        default: "false"
+  schedule:
+    # Run hourly; code runs only at 12:00 Europe/Paris (handles DST)
+    - cron: "5 * * * *"
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    env:
+      AREAS: "FR,GER"
+      CURRENCY: "EUR"
+      START_DATE: "2026-03-01"
+      AUCTION_MARKETS: "DayAhead,IntradayAuction1,IntradayAuction2,IntradayAuction3"
+      ENFORCE_NOON_PARIS: "1"
+      BACKFILL: ${{ github.event.inputs.backfill == 'true' && '1' || '0' }}
+      # If you need an API key:
+      NORDPOOL_API_KEY: ${{ secrets.NORDPOOL_API_KEY }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run bot
+        run: |
+          python nordpool_bot.py
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: nordpool-fr-ger
+          path: artifacts/
