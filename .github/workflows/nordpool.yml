@@ -18,7 +18,6 @@ jobs:
       AREAS: "FR,GER"
       CURRENCY: "EUR"
       START_DATE: "2026-03-01"
-      AUCTION_MARKETS: "DayAhead,IntradayAuction1,IntradayAuction2,IntradayAuction3"
       ENFORCE_NOON_PARIS: "1"
       BACKFILL: ${{ github.event.inputs.backfill == 'true' && '1' || '0' }}
       # If you need an API key:
