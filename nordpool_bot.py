@@ -1,3 +1,13 @@
+import os
+import json
+from datetime import date, datetime, timedelta
+from zoneinfo import ZoneInfo
+from typing import Any, Dict, List, Tuple
+
+import requests
+import pandas as pd
+
+
 def paris_now() -> datetime:
     return datetime.now(tz=TZ)
 
