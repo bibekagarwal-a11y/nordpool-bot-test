@@ -2,16 +2,17 @@ import os
 import json
 from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List
 
 import requests
 import pandas as pd
 
 TZ = ZoneInfo("Europe/Paris")
 
+# Public day-ahead endpoint (no auth)
 DAYAHEAD_PUBLIC_URL = "https://dataportal-api.nordpoolgroup.com/api/DayAheadPrices"
 
-AREAS = os.environ.get("AREAS", "FR,GER")
+AREAS = os.environ.get("AREAS", "FR,GER")   # comma-separated
 CURRENCY = os.environ.get("CURRENCY", "EUR")
 START_DATE = os.environ.get("START_DATE", "2026-03-01")
 
@@ -21,9 +22,11 @@ OUT_DIR = "artifacts"
 def paris_now() -> datetime:
     return datetime.now(tz=TZ)
 
+
 def is_noon_paris() -> bool:
     now = paris_now()
     return now.hour == 12  # run during 12:xx Europe/Paris hour
+
 
 def daterange(d0: date, d1: date):
     d = d0
@@ -31,14 +34,17 @@ def daterange(d0: date, d1: date):
         yield d
         d += timedelta(days=1)
 
+
 def ensure_dirs():
     os.makedirs(os.path.join(OUT_DIR, "raw"), exist_ok=True)
     os.makedirs(os.path.join(OUT_DIR, "tidy"), exist_ok=True)
 
-def write_raw(kind: str, d: date, payload: object):
-    p = os.path.join(OUT_DIR, "raw", f"{kind}_{d.isoformat()}.json")
+
+def write_raw(d: date, payload: object):
+    p = os.path.join(OUT_DIR, "raw", f"dayahead_{d.isoformat()}.json")
     with open(p, "w", encoding="utf-8") as f:
         json.dump(payload, f, ensure_ascii=False, indent=2)
+
 
 def fetch_dayahead(d: date) -> object:
     r = requests.get(
@@ -54,73 +60,40 @@ def fetch_dayahead(d: date) -> object:
     r.raise_for_status()
     return r.json()
 
-def walk_json(x: Any):
-    """Yield every dict found in a nested JSON structure."""
-    if isinstance(x, dict):
-        yield x
-        for v in x.values():
-            yield from walk_json(v)
-    elif isinstance(x, list):
-        for it in x:
-            yield from walk_json(it)
 
-def normalize_area_code(area: str) -> str:
-    area = area.strip()
-    if area.upper() in ("FR", "GER"):
-        return area.upper()
-    return area
+def extract_rows_from_payload(payload: Any) -> List[Dict[str, Any]]:
+    """
+    Parse Nord Pool DayAheadPrices response:
+      payload["deliveryDateCET"]
+      payload["multiAreaEntries"][] with entryPerArea dict
+    Produces 1 row per (time-slice, area).
+    """
+    target_areas = [a.strip().upper() for a in AREAS.split(",") if a.strip()]
 
-def extract_rows_from_payload(payload: Any, delivery_date: date) -> List[Dict[str, Any]]:
-    """
-    Robust extraction: find dicts that look like price points containing:
-      - area (deliveryArea/area)
-      - timestamp (deliveryStart/startTime/time/dateTime)
-      - price (price/value)
-    """
-    target_areas = {a.strip().upper() for a in AREAS.split(",") if a.strip()}
+    delivery_date_cet = payload.get("deliveryDateCET")
+    currency = payload.get("currency", CURRENCY)
+    market = payload.get("market", "DayAhead")
 
     rows: List[Dict[str, Any]] = []
-    seen: set[Tuple[str, str, str]] = set()
+    for e in payload.get("multiAreaEntries", []) or []:
+        start = e.get("deliveryStart")
+        end = e.get("deliveryEnd")
+        per_area = e.get("entryPerArea", {}) or {}
 
-    for d in walk_json(payload):
-        area = d.get("deliveryArea") or d.get("area") or d.get("delivery_area")
-        if not isinstance(area, str):
-            continue
-        area_norm = normalize_area_code(area)
-        if area_norm.upper() not in target_areas:
-            continue
-
-        # price
-        price = d.get("price")
-        if price is None:
-            price = d.get("value")
-        if price is None:
-            continue
-
-        # time (string)
-        t = d.get("deliveryStart") or d.get("startTime") or d.get("time") or d.get("dateTime")
-        if not isinstance(t, str) or not t.strip():
-            continue
-
-        # end time is optional
-        t_end = d.get("deliveryEnd") or d.get("endTime")
-
-        key = (area_norm.upper(), t, str(price))
-        if key in seen:
-            continue
-        seen.add(key)
-
-        rows.append({
-            "market": "DayAhead",
-            "date_cet": delivery_date.isoformat(),
-            "area": area_norm.upper(),
-            "deliveryStart": t,
-            "deliveryEnd": t_end if isinstance(t_end, str) else None,
-            "price": price,
-            "currency": CURRENCY,
-        })
+        for area in target_areas:
+            if area in per_area:
+                rows.append({
+                    "market": market,
+                    "date_cet": delivery_date_cet,
+                    "area": area,
+                    "deliveryStart": start,
+                    "deliveryEnd": end,
+                    "price": per_area.get(area),
+                    "currency": currency,
+                })
 
     return rows
+
 
 def run(backfill: bool):
     ensure_dirs()
@@ -133,36 +106,33 @@ def run(backfill: bool):
 
     for d in dates:
         payload = fetch_dayahead(d)
-        write_raw("dayahead", d, payload)
+        write_raw(d, payload)
+        all_rows.extend(extract_rows_from_payload(payload))
 
-        rows = extract_rows_from_payload(payload, d)
-        all_rows.extend(rows)
-
-    # Write tidy outputs
     if all_rows:
         df = pd.DataFrame(all_rows).drop_duplicates()
-
-        # Sort for readability if possible
-        for col in ["date_cet", "area", "deliveryStart"]:
-            if col not in df.columns:
-                break
-        else:
-            df = df.sort_values(["date_cet", "area", "deliveryStart"])
-
+        df = df.sort_values(["date_cet", "area", "deliveryStart"])
         df.to_csv(os.path.join(OUT_DIR, "tidy", "dayahead_prices.csv"), index=False)
-        df.to_json(os.path.join(OUT_DIR, "tidy", "dayahead_prices.json"),
-                   orient="records", force_ascii=False, indent=2)
+        df.to_json(
+            os.path.join(OUT_DIR, "tidy", "dayahead_prices.json"),
+            orient="records",
+            force_ascii=False,
+            indent=2,
+        )
+
 
 def main():
     enforce_noon = os.environ.get("ENFORCE_NOON_PARIS", "1") == "1"
     backfill = os.environ.get("BACKFILL", "0") == "1"
 
+    # For scheduled runs: only run at noon Paris time
     if enforce_noon and not backfill and not is_noon_paris():
         print("Not 12:00 Europe/Paris; exiting.")
         return
 
     run(backfill=backfill)
     print("Done.")
+
 
 if __name__ == "__main__":
     main()
