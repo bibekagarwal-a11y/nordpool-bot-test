@@ -8,8 +8,11 @@ on:
         required: false
         default: "false"
   schedule:
-    # Run hourly; code runs only at 12:00 Europe/Paris (handles DST)
+    # Run hourly; script runs only at 12:00 Europe/Paris (handles DST)
     - cron: "5 * * * *"
+
+permissions:
+  contents: write
 
 jobs:
   run:
@@ -20,11 +23,11 @@ jobs:
       START_DATE: "2026-03-01"
       ENFORCE_NOON_PARIS: "1"
       BACKFILL: ${{ github.event.inputs.backfill == 'true' && '1' || '0' }}
-      # If you need an API key:
-      NORDPOOL_API_KEY: ${{ secrets.NORDPOOL_API_KEY }}
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - uses: actions/setup-python@v5
         with:
@@ -39,8 +42,18 @@ jobs:
         run: |
           python nordpool_bot.py
 
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: nordpool-fr-ger
-          path: artifacts/
+      - name: Commit updated datasets
+        run: |
+          git config user.name "nordpool-bot"
+          git config user.email "nordpool-bot@users.noreply.github.com"
+
+          git add data/*.csv || true
+
+          # If nothing changed, do nothing
+          if git diff --cached --quiet; then
+            echo "No dataset changes to commit."
+            exit 0
+          fi
+
+          git commit -m "Update Nord Pool datasets [skip ci]"
+          git push
