@@ -7,6 +7,16 @@ from typing import Any, Dict, List, Tuple
 import requests
 import pandas as pd
 
+TZ = ZoneInfo("Europe/Paris")
+
+DAYAHEAD_PUBLIC_URL = "https://dataportal-api.nordpoolgroup.com/api/DayAheadPrices"
+
+AREAS = os.environ.get("AREAS", "FR,GER")
+CURRENCY = os.environ.get("CURRENCY", "EUR")
+START_DATE = os.environ.get("START_DATE", "2026-03-01")
+
+OUT_DIR = "artifacts"
+
 
 def paris_now() -> datetime:
     return datetime.now(tz=TZ)
