@@ -7,7 +7,10 @@ from zoneinfo import ZoneInfo
 import pandas as pd
 import requests
 
+
 TZ = ZoneInfo("Europe/Paris")
+
+DAYAHEAD_PUBLIC_URL = "https://dataportal-api.nordpoolgroup.com/api/DayAheadPrices"
 
 API_BASE = os.environ.get("NORDPOOL_API_BASE", "https://data-api.nordpoolgroup.com")
 DAYAHEAD_PUBLIC_URL = "https://dataportal-api.nordpoolgroup.com/api/DayAheadPrices"
@@ -146,19 +149,25 @@ def run(backfill: bool):
         # Auction prices: DayAhead + IDA1/2/3
         for market in markets:
             payload = fetch_json(
-                s,
-                "/api/v2/Auction/Prices/ByAreas",
-                {"market": market, "areas": areas, "currency": CURRENCY, "date": d.isoformat()},
-            )
+# Day-ahead via public endpoint (no auth)
+r = requests.get(
+    DAYAHEAD_PUBLIC_URL,
+    params={
+        "date": d.isoformat(),
+        "market": "DayAhead",
+        "deliveryArea": AREAS,  # "FR,GER"
+        "currency": CURRENCY,
+    },
+    timeout=60,
+)
+r.raise_for_status()
+payload = r.json()
+
+write_raw("dayahead_public", "DayAhead", d, payload)
             write_raw("auction_prices", market, d, payload)
             auction_rows.extend(normalize_auction_prices(payload, market, d))
 
-        # Intraday VWAP (continuous proxy): hourly statistics
-        payload = fetch_json(
-            s,
-            "/api/v2/Intraday/HourlyStatistics/ByAreas",
-            {"areas": areas, "date": d.isoformat()},
-        )
+
         write_raw("intraday_hourly_stats", "ByAreas", d, payload)
         vwap_rows.extend(normalize_intraday_vwap(payload, d))
 
