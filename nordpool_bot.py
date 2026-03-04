@@ -16,7 +16,12 @@ AREAS = os.environ.get("AREAS", "FR,GER")
 CURRENCY = os.environ.get("CURRENCY", "EUR")
 START_DATE = os.environ.get("START_DATE", "2026-03-01")
 
-OUT_DIR = "artifacts"
+# Raw logs/artifacts (optional)
+ARTIFACTS_DIR = "artifacts"
+RAW_DIR = os.path.join(ARTIFACTS_DIR, "raw")
+
+# Permanent dataset folder (committed to repo)
+DATA_DIR = "data"
 
 
 def paris_now() -> datetime:
@@ -35,12 +40,12 @@ def daterange(d0: date, d1: date):
 
 
 def ensure_dirs():
-    os.makedirs(os.path.join(OUT_DIR, "raw"), exist_ok=True)
-    os.makedirs(os.path.join(OUT_DIR, "tidy"), exist_ok=True)
+    os.makedirs(RAW_DIR, exist_ok=True)
+    os.makedirs(DATA_DIR, exist_ok=True)
 
 
 def write_raw(prefix: str, market: str, d: date, payload: object):
-    p = os.path.join(OUT_DIR, "raw", f"{prefix}_{market}_{d.isoformat()}.json")
+    p = os.path.join(RAW_DIR, f"{prefix}_{market}_{d.isoformat()}.json")
     with open(p, "w", encoding="utf-8") as f:
         json.dump(payload, f, ensure_ascii=False, indent=2)
 
@@ -71,7 +76,7 @@ def fetch_prices(d: date, market: str) -> object:
 
 
 def extract_auction_rows(payload: Any) -> List[Dict[str, Any]]:
-    target_areas = [a.strip().upper() for a in AREAS.split(",")]
+    target_areas = [a.strip().upper() for a in AREAS.split(",") if a.strip()]
 
     delivery_date_cet = payload.get("deliveryDateCET")
     currency = payload.get("currency")
@@ -79,10 +84,10 @@ def extract_auction_rows(payload: Any) -> List[Dict[str, Any]]:
 
     rows: List[Dict[str, Any]] = []
 
-    for e in payload.get("multiAreaEntries", []):
+    for e in payload.get("multiAreaEntries", []) or []:
         start_utc = e.get("deliveryStart")
         end_utc = e.get("deliveryEnd")
-        per_area = e.get("entryPerArea", {})
+        per_area = e.get("entryPerArea", {}) or {}
 
         start_cet = parse_utc_iso_to_paris(start_utc)
         end_cet = parse_utc_iso_to_paris(end_utc)
@@ -109,10 +114,7 @@ def extract_auction_rows(payload: Any) -> List[Dict[str, Any]]:
 def fetch_intraday_stats(d: date, area: str) -> object:
     r = requests.get(
         INTRADAY_STATS_URL,
-        params={
-            "date": d.isoformat(),
-            "deliveryArea": area,
-        },
+        params={"date": d.isoformat(), "deliveryArea": area},
         timeout=60,
     )
     r.raise_for_status()
@@ -121,69 +123,82 @@ def fetch_intraday_stats(d: date, area: str) -> object:
 
 def extract_vwap_qh_rows(payload: Any, area: str) -> List[Dict[str, Any]]:
     """
-    Extract ONLY quarter-hour contracts (QH) VWAP
+    Intraday continuous VWAP = contracts[].averagePrice
+    Keep ONLY quarter-hour contracts (contractName starts with 'QH-').
     """
-
     rows: List[Dict[str, Any]] = []
-
     delivery_date_cet = payload.get("deliveryDateCET")
 
-    for c in payload.get("contracts", []):
-
-        contract_name = c.get("contractName")
-
-        # keep ONLY quarter hour contracts
-        if not contract_name or not contract_name.startswith("QH-"):
+    for c in payload.get("contracts", []) or []:
+        name = c.get("contractName")
+        if not name or not name.startswith("QH-"):
             continue
 
         start_utc = c.get("deliveryStart")
         end_utc = c.get("deliveryEnd")
+        vwap = c.get("averagePrice")
+
+        if not (start_utc and end_utc) or not isinstance(vwap, (int, float)):
+            continue
 
         rows.append(
             {
                 "market": "IntradayContinuousVWAP",
                 "date_cet": delivery_date_cet,
                 "area": area,
-                "contractName": contract_name,
+                "contractName": name,
+                "contractId": c.get("contractId"),
                 "deliveryStartUTC": start_utc,
                 "deliveryEndUTC": end_utc,
                 "deliveryStartCET": parse_utc_iso_to_paris(start_utc),
                 "deliveryEndCET": parse_utc_iso_to_paris(end_utc),
-                "vwap": c.get("averagePrice"),
+                "vwap": float(vwap),
                 "volume": c.get("volume"),
+                "priceUnit": payload.get("priceUnit"),
+                "volumeUnit": payload.get("volumeUnit"),
             }
         )
 
     return rows
 
 
-def write_csv(rows: List[Dict[str, Any]], filename: str):
-
+def upsert_csv(rows: List[Dict[str, Any]], filename: str, sort_cols: List[str]):
+    """
+    Merge new rows into data/<filename>, drop duplicates, sort, and write back.
+    """
     if not rows:
         return
 
-    df = pd.DataFrame(rows).drop_duplicates()
+    path = os.path.join(DATA_DIR, filename)
+    new_df = pd.DataFrame(rows)
 
-    if "deliveryStartCET" in df.columns:
-        df = df.sort_values(["date_cet", "area", "deliveryStartCET"])
+    if os.path.exists(path):
+        old_df = pd.read_csv(path)
+        df = pd.concat([old_df, new_df], ignore_index=True)
+    else:
+        df = new_df
 
-    df.to_csv(os.path.join(OUT_DIR, "tidy", filename), index=False)
+    df = df.drop_duplicates()
+
+    existing_sort_cols = [c for c in sort_cols if c in df.columns]
+    if existing_sort_cols:
+        df = df.sort_values(existing_sort_cols)
+
+    df.to_csv(path, index=False)
 
 
 def run(backfill: bool):
-
     ensure_dirs()
 
     start = date.fromisoformat(START_DATE)
     yesterday = paris_now().date() - timedelta(days=1)
-
     dates = list(daterange(start, yesterday)) if backfill else [yesterday]
 
-    all_dayahead = []
-    all_ida1 = []
-    all_ida2 = []
-    all_ida3 = []
-    all_vwap = []
+    all_dayahead: List[Dict[str, Any]] = []
+    all_ida1: List[Dict[str, Any]] = []
+    all_ida2: List[Dict[str, Any]] = []
+    all_ida3: List[Dict[str, Any]] = []
+    all_vwap: List[Dict[str, Any]] = []
 
     auction_markets = [
         ("DayAhead", all_dayahead),
@@ -192,46 +207,39 @@ def run(backfill: bool):
         ("SIDC_IntradayAuction3", all_ida3),
     ]
 
-    areas = [a.strip().upper() for a in AREAS.split(",")]
+    areas = [a.strip().upper() for a in AREAS.split(",") if a.strip()]
 
     for d in dates:
-
-        # auctions
+        # Auctions
         for market, bucket in auction_markets:
-
             payload = fetch_prices(d, market)
-
             write_raw("prices", market, d, payload)
-
             bucket.extend(extract_auction_rows(payload))
 
-        # intraday continuous VWAP
+        # Continuous VWAP (QH only)
         for area in areas:
-
             stats = fetch_intraday_stats(d, area)
-
             write_raw("intraday_stats", area, d, stats)
-
             all_vwap.extend(extract_vwap_qh_rows(stats, area))
 
-    write_csv(all_dayahead, "dayahead_prices.csv")
-    write_csv(all_ida1, "ida1_prices.csv")
-    write_csv(all_ida2, "ida2_prices.csv")
-    write_csv(all_ida3, "ida3_prices.csv")
-    write_csv(all_vwap, "intraday_continuous_vwap_qh.csv")
+    # Upsert into permanent CSVs
+    upsert_csv(all_dayahead, "dayahead_prices.csv", ["date_cet", "area", "deliveryStartCET"])
+    upsert_csv(all_ida1, "ida1_prices.csv", ["date_cet", "area", "deliveryStartCET"])
+    upsert_csv(all_ida2, "ida2_prices.csv", ["date_cet", "area", "deliveryStartCET"])
+    upsert_csv(all_ida3, "ida3_prices.csv", ["date_cet", "area", "deliveryStartCET"])
+    upsert_csv(all_vwap, "intraday_continuous_vwap_qh.csv", ["date_cet", "area", "deliveryStartCET"])
 
 
 def main():
-
     enforce_noon = os.environ.get("ENFORCE_NOON_PARIS", "1") == "1"
     backfill = os.environ.get("BACKFILL", "0") == "1"
 
+    # Scheduled runs: only run at 12:00 Paris time; backfill ignores this gate.
     if enforce_noon and not backfill and not is_noon_paris():
         print("Not 12:00 Paris time — exiting")
         return
 
     run(backfill=backfill)
-
     print("Done")
 
 
