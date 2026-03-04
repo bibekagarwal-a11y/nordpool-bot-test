@@ -10,6 +10,7 @@ import requests
 TZ = ZoneInfo("Europe/Paris")
 
 API_BASE = os.environ.get("NORDPOOL_API_BASE", "https://data-api.nordpoolgroup.com")
+DAYAHEAD_PUBLIC_URL = "https://dataportal-api.nordpoolgroup.com/api/DayAheadPrices"
 API_KEY = os.environ.get("NORDPOOL_API_KEY", "")  # optional
 
 AREAS = os.environ.get("AREAS", "FR,GER")
