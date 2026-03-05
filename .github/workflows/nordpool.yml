@@ -8,7 +8,7 @@ on:
         required: false
         default: "false"
   schedule:
-    # Run hourly; script runs only at 12:00 Europe/Paris (handles DST)
+    # Run hourly; the script itself will only do work at 12:00 Europe/Paris (DST-safe)
     - cron: "5 * * * *"
 
 permissions:
@@ -42,6 +42,14 @@ jobs:
         run: |
           python nordpool_bot.py
 
+      # Upload raw JSON for debugging (NOT committed to repo)
+      - name: Upload raw JSON debug files
+        uses: actions/upload-artifact@v4
+        with:
+          name: nordpool-raw-json
+          path: artifacts/raw/
+
+      # Commit only the permanent datasets in data/
       - name: Commit updated datasets
         run: |
           git config user.name "nordpool-bot"
@@ -49,7 +57,6 @@ jobs:
 
           git add data/*.csv || true
 
-          # If nothing changed, do nothing
           if git diff --cached --quiet; then
             echo "No dataset changes to commit."
             exit 0
