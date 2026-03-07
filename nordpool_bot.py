@@ -7,71 +7,72 @@ from typing import Any, Dict, List, Optional
 import requests
 import pandas as pd
 
+# Timezone used throughout the script (Europe/Paris)
 TZ = ZoneInfo("Europe/Paris")
 
-# Public Nord Pool dataportal APIs (no auth)
+# Public Nord Pool data portal APIs (no authentication required)
 PRICES_URL = "https://dataportal-api.nordpoolgroup.com/api/DayAheadPrices"
 INTRADAY_STATS_URL = "https://dataportal-api.nordpoolgroup.com/api/IntradayMarketStatistics"
 
+# Areas (delivery zones) to query; default to France and Germany
 AREAS = os.environ.get("AREAS", "FR,GER")
+# Currency for all prices
 CURRENCY = os.environ.get("CURRENCY", "EUR")
+# Start date (inclusive) for historical backfills
 START_DATE = os.environ.get("START_DATE", "2026-03-01")
 
-# Permanent datasets committed into the repo
+# Permanent datasets are written into this directory
 DATA_DIR = "data"
 
-# Raw JSON stored as GitHub Actions artifacts (not committed)
+# Raw JSON (debugging) will be stored as GitHub Actions artifacts
 ARTIFACTS_RAW_DIR = os.path.join("artifacts", "raw")
 
-
 def paris_now() -> datetime:
+    """Return current datetime in Europe/Paris timezone."""
     return datetime.now(tz=TZ)
 
-
 def is_noon_paris() -> bool:
+    """Return True if the current hour in Paris is 12 (noon)."""
     return paris_now().hour == 12
 
-
 def daterange(d0: date, d1: date):
+    """Generate a sequence of dates from d0 to d1 inclusive."""
     d = d0
     while d <= d1:
         yield d
         d += timedelta(days=1)
 
-
-def ensure_dirs():
+def ensure_dirs() -> None:
+    """Ensure DATA_DIR and ARTIFACTS_RAW_DIR exist."""
     os.makedirs(DATA_DIR, exist_ok=True)
     os.makedirs(ARTIFACTS_RAW_DIR, exist_ok=True)
 
-
-def write_raw(prefix: str, market: str, d: date, payload: object):
+def write_raw(prefix: str, market: str, d: date, payload: object) -> None:
     """
     Save raw JSON payloads for debugging.
-    These will be uploaded as an Actions artifact and not committed to git.
+    These files will be saved in artifacts/raw but not committed.
     """
     ensure_dirs()
     path = os.path.join(ARTIFACTS_RAW_DIR, f"{prefix}_{market}_{d.isoformat()}.json")
     with open(path, "w", encoding="utf-8") as f:
         json.dump(payload, f, ensure_ascii=False, indent=2)
 
-
 def parse_utc_iso_to_paris(iso_utc: Optional[str]) -> Optional[str]:
     """
-    Convert '...Z' (UTC) to Europe/Paris ISO string (+01:00 or +02:00).
-    DST handled automatically.
+    Convert an ISO 8601 string in UTC (with 'Z') to an ISO string in Europe/Paris timezone.
+    Returns None if input is None.
     """
     if not iso_utc:
         return None
     s = iso_utc
     if s.endswith("Z"):
         s = s[:-1] + "+00:00"
-    dt = datetime.fromisoformat(s)
-    return dt.astimezone(TZ).isoformat()
-
+    d = datetime.fromisoformat(s)
+    return d.astimezone(TZ).isoformat()
 
 def fetch_prices(d: date, market: str) -> object:
     """
-    Auction prices endpoint (works for DayAhead + SIDC intraday auctions).
+    Fetch day‑ahead or SIDC intraday auction prices for a given date and market.
     """
     r = requests.get(
         PRICES_URL,
@@ -86,13 +87,10 @@ def fetch_prices(d: date, market: str) -> object:
     r.raise_for_status()
     return r.json()
 
-
 def extract_auction_rows(payload: Any) -> List[Dict[str, Any]]:
     """
-    Expected shape:
-      deliveryDateCET
-      market
-      multiAreaEntries[]: { deliveryStart, deliveryEnd, entryPerArea{FR:.., GER:..}}
+    Parse auction price payload into a list of rows keyed by area.
+    Each row includes delivery dates/times in UTC and CET and the price.
     """
     target_areas = [a.strip().upper() for a in AREAS.split(",") if a.strip()]
 
@@ -102,10 +100,10 @@ def extract_auction_rows(payload: Any) -> List[Dict[str, Any]]:
 
     rows: List[Dict[str, Any]] = []
 
-    for e in payload.get("multiAreaEntries", []) or []:
-        start_utc = e.get("deliveryStart")
-        end_utc = e.get("deliveryEnd")
-        per_area = e.get("entryPerArea", {}) or {}
+    for entry in payload.get("multiAreaEntries", []) or []:
+        start_utc = entry.get("deliveryStart")
+        end_utc = entry.get("deliveryEnd")
+        per_area = entry.get("entryPerArea", {}) or {}
 
         start_cet = parse_utc_iso_to_paris(start_utc)
         end_cet = parse_utc_iso_to_paris(end_utc)
@@ -125,13 +123,11 @@ def extract_auction_rows(payload: Any) -> List[Dict[str, Any]]:
                         "currency": currency,
                     }
                 )
-
     return rows
-
 
 def fetch_intraday_stats(d: date, area: str) -> object:
     """
-    Continuous intraday market statistics endpoint.
+    Fetch continuous intraday market statistics (VWAP and volumes) for a given date and delivery area.
     """
     r = requests.get(
         INTRADAY_STATS_URL,
@@ -141,11 +137,10 @@ def fetch_intraday_stats(d: date, area: str) -> object:
     r.raise_for_status()
     return r.json()
 
-
 def extract_vwap_qh_rows(payload: Any, area: str) -> List[Dict[str, Any]]:
     """
-    Continuous intraday VWAP = contracts[].averagePrice
-    Keep ONLY quarter-hour contracts (contractName starts with 'QH-').
+    Extract quarter‑hour continuous intraday VWAP data.  Only contracts whose name starts
+    with 'QH-' are included.  Times returned by the API are in UTC.
     """
     rows: List[Dict[str, Any]] = []
     delivery_date_cet = payload.get("deliveryDateCET", None)
@@ -155,12 +150,10 @@ def extract_vwap_qh_rows(payload: Any, area: str) -> List[Dict[str, Any]]:
         name = c.get("contractName")
         if not name or not name.startswith("QH-"):
             continue
-
         start_utc = c.get("deliveryStart")
         end_utc = c.get("deliveryEnd")
         vwap = c.get("averagePrice")
-
-        # Skip null/invalid VWAP rows
+        # Skip rows missing times or invalid VWAP values
         if not (start_utc and end_utc) or not isinstance(vwap, (int, float)):
             continue
 
@@ -181,11 +174,9 @@ def extract_vwap_qh_rows(payload: Any, area: str) -> List[Dict[str, Any]]:
                 "volumeUnit": payload.get("volumeUnit"),
             }
         )
-
     return rows
 
-
-def upsert_csv(rows: List[Dict[str, Any]], filename: str, sort_cols: List[str]):
+def upsert_csv(rows: List[Dict[str, Any]], filename: str, sort_cols: List[str]) -> None:
     """
     Merge new rows into data/<filename>, drop duplicates, sort, and write back.
     """
@@ -204,16 +195,19 @@ def upsert_csv(rows: List[Dict[str, Any]], filename: str, sort_cols: List[str]):
 
     df = df.drop_duplicates()
 
+    # Only sort on columns that actually exist in the DataFrame
     existing_sort_cols = [c for c in sort_cols if c in df.columns]
     if existing_sort_cols:
         df = df.sort_values(existing_sort_cols)
 
     df.to_csv(path, index=False)
 
-
-def run(backfill: bool):
+def run(backfill: bool) -> None:
+    """
+    Execute the data collection for either a single day (yesterday) or a range
+    of dates if backfilling.
+    """
     ensure_dirs()
-
     start = date.fromisoformat(START_DATE)
     yesterday = paris_now().date() - timedelta(days=1)
     dates = list(daterange(start, yesterday)) if backfill else [yesterday]
@@ -226,46 +220,47 @@ def run(backfill: bool):
 
     auction_markets = [
         ("DayAhead", all_dayahead),
-        ("SIDC_IntradayAuction1", all_ida1),
-        ("SIDC_IntradayAuction2", all_ida2),
-        ("SIDC_IntradayAuction3", all_ida3),
+        ("SIDC IntradayAuction1", all_ida1),
+        ("SIDC IntradayAuction2", all_ida2),
+        ("SIDC IntradayAuction3", all_ida3),
     ]
 
     areas = [a.strip().upper() for a in AREAS.split(",") if a.strip()]
 
     for d in dates:
-        # Auctions
+        # Auction markets (day‑ahead and SIDC intraday auctions)
         for market, bucket in auction_markets:
             payload = fetch_prices(d, market)
             write_raw("prices", market, d, payload)
             bucket.extend(extract_auction_rows(payload))
 
-        # Continuous VWAP (QH only)
+        # Continuous intraday VWAP (quarter‑hour only)
         for area in areas:
             stats = fetch_intraday_stats(d, area)
             write_raw("intraday_stats", area, d, stats)
             all_vwap_qh.extend(extract_vwap_qh_rows(stats, area))
 
-    # Upsert permanent datasets
+    # Merge new data into the CSV files in the data directory
     upsert_csv(all_dayahead, "dayahead_prices.csv", ["date_cet", "area", "deliveryStartCET"])
     upsert_csv(all_ida1, "ida1_prices.csv", ["date_cet", "area", "deliveryStartCET"])
     upsert_csv(all_ida2, "ida2_prices.csv", ["date_cet", "area", "deliveryStartCET"])
     upsert_csv(all_ida3, "ida3_prices.csv", ["date_cet", "area", "deliveryStartCET"])
     upsert_csv(all_vwap_qh, "intraday_continuous_vwap_qh.csv", ["date_cet", "area", "deliveryStartCET"])
 
-
-def main():
+def main() -> None:
+    """
+    Entry point.  Optionally enforce running only at noon Paris time, and handle backfill.
+    """
     enforce_noon = os.environ.get("ENFORCE_NOON_PARIS", "1") == "1"
     backfill = os.environ.get("BACKFILL", "0") == "1"
 
-    # Scheduled runs: only run at 12:00 Paris time; backfill ignores this gate.
+    # Scheduled runs: only run at 12:00 Paris time if enforced
     if enforce_noon and not backfill and not is_noon_paris():
-        print("Not 12:00 Paris time — exiting")
+        print("Not 12:00 Paris time – exiting")
         return
 
     run(backfill=backfill)
     print("Done")
-
 
 if __name__ == "__main__":
     main()
