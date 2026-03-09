@@ -27,13 +27,15 @@ jobs:
         run: pip install pandas matplotlib
 
       - name: Run analysis
-        run: python analysis/build_analysis.py
+        run: |
+          python analysis/build_analysis.py
+          python analysis/build_selector_data.py
 
       - name: Commit generated outputs
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          mkdir -p charts reports
-          git add charts reports
+          mkdir -p charts reports docs/data
+          git add charts reports docs
           git diff --cached --quiet || git commit -m "Update analysis outputs"
           git push
