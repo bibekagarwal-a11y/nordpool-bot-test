@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Electricity Arbitrage Explorer</title>
+
+<script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+<link rel="stylesheet" href="styles.css">
+
+</head>
+
+<body>
+
+<h1>Electricity Arbitrage Explorer</h1>
+
+<div class="controls">
+
+<label>Area
+<select id="area"></select>
+</label>
+
+<label>Rule
+<select id="rule"></select>
+</label>
+
+<label>Date
+<select id="date"></select>
+</label>
+
+<label>Contracts
+<select id="contracts" multiple size="12"></select>
+</label>
+
+</div>
+
+<div class="summary">
+
+<h3>Total Profit</h3>
+<div id="profit"></div>
+
+</div>
+
+<div id="histogram"></div>
+
+<div id="table"></div>
+
+<script src="app.js"></script>
+
+</body>
+</html>
