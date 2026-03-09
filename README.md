@@ -1,38 +1,27 @@
-# Nord Pool Bot (FR + GER): Day-ahead, IDA1/2/3, Intraday VWAP
-
-This repo runs a daily "agent mode" job in GitHub Actions to fetch:
-- Day-ahead prices (Auction)
-- IDA1 / IDA2 / IDA3 prices (Auction)
-- Intraday continuous VWAP (using Intraday HourlyStatistics averagePrice)
-
-## Output
-Artifacts are uploaded in Actions runs:
-- artifacts/raw/... (raw JSON per dataset/date)
-- artifacts/tidy/auction_prices.csv
-- artifacts/tidy/intraday_vwap.csv
-
-## Schedules
-GitHub Actions cron is UTC only. We run hourly and the script only executes at 12:00 Europe/Paris
-(works across DST).
-
-## Configuration (GitHub → Settings → Secrets and variables → Actions)
-Variables (optional):
-- AREAS: "FR,GER"
-- CURRENCY: "EUR"
-- START_DATE: "2026-03-01"
-- AUCTION_MARKETS: "DayAhead,IntradayAuction1,IntradayAuction2,IntradayAuction3"
-
-Secrets (optional):
-- NORDPOOL_API_KEY: if your access requires it
-
-## Manual backfill
-Actions → "Nord Pool Bot" → Run workflow
-Set input `backfill` to true to download from START_DATE up to yesterday.
-
 # Nordpool Electricity Market Analysis
 
-Daily automated analysis of electricity market prices.
+Automated GitHub-based electricity market analysis using the CSV files in `data/`.
 
-## Price Comparison
+## Charts
 
-![Prices](charts/price_trends.png)
+### Price trends
+![Price Trends](charts/price_trends.png)
+
+### Max-Min spreads
+![Spreads](charts/spreads.png)
+
+### Yesterday vs Today
+![Yesterday vs Today](charts/yesterday_vs_today.png)
+
+### Arbitrage Summary
+![Arbitrage Summary](charts/arbitrage_summary.png)
+
+## Reports
+
+- `reports/summary.csv`
+- `reports/daily_market_averages.csv`
+- `reports/yesterday_vs_today.csv`
+- `reports/anomaly_detection.csv`
+- `reports/arbitrage_opportunities.csv`
+- `reports/arbitrage_summary.csv`
+- `reports/daily_report.md`
