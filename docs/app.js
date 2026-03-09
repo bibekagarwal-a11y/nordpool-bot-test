@@ -532,7 +532,10 @@ document.getElementById("rule").addEventListener("change", updateContracts);
 document.getElementById("direction").addEventListener("change", render);
 document.getElementById("startDate").addEventListener("change", updateContracts);
 document.getElementById("endDate").addEventListener("change", updateContracts);
-document.getElementById("contracts").addEventListener("change", render);
+document.getElementById("contracts").addEventListener("change", () => {
+  setActivePreset(null);
+  render();
+});
 
 document.getElementById("selectAllBtn").addEventListener("click", () => {
   selectAllOptions("contracts");
