@@ -4,7 +4,16 @@
 5
 
 ## Highest average price
-ida3_prices.csv — 83.66 €/MWh
+IntradayVWAP — 84.47 €/MWh
 
 ## Largest spread
-dayahead_prices.csv — 430.39 €/MWh
+DayAhead — 430.39 €/MWh
+
+## Biggest yesterday-vs-today move
+IDA3 — -21.89 €/MWh (-20.11%)
+
+## 7-day anomalies
+No strong anomalies detected (> 2 rolling std).
+
+## Best arbitrage setup
+DayAhead_to_IntradayVWAP — average profit 2.74 €/MWh
