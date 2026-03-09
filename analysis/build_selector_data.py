@@ -106,14 +106,23 @@ for rule_name, buy_market, sell_market in rules:
     buy = base[base.market == buy_market].rename(columns={"price_value": "buy_price"})
     sell = base[base.market == sell_market].rename(columns={"price_value": "sell_price"})
 
-    merged = buy.merge(
-        sell,
-        on=["date", "area", "contract"],
-        how="inner"
-    )
+merged = buy.merge(
+    sell,
+    on=["date", "area", "contract"],
+    how="inner",
+    suffixes=("_buy", "_sell"),
+)
 
-    merged["rule"] = rule_name
-    merged["profit"] = merged["sell_price"] - merged["buy_price"]
+merged["rule"] = rule_name
+merged["profit"] = merged["sell_price"] - merged["buy_price"]
+
+# recover contract_sort
+if "contract_sort_buy" in merged.columns:
+    merged["contract_sort"] = merged["contract_sort_buy"]
+elif "contract_sort_sell" in merged.columns:
+    merged["contract_sort"] = merged["contract_sort_sell"]
+else:
+    merged["contract_sort"] = 0
 
     profit_rows.append(
         merged[
