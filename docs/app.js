@@ -107,6 +107,52 @@ function updateContracts() {
 }
 
 function getFilteredRows() {
+
+const area = document.getElementById("area").value;
+const rule = document.getElementById("rule").value;
+const direction = document.getElementById("direction").value;
+
+const startDate = document.getElementById("startDate").value;
+const endDate = document.getElementById("endDate").value;
+
+const selectedContracts = [...document.getElementById("contracts").selectedOptions].map(x => x.value);
+
+let filtered = data.filter(d => {
+
+if (d.area !== area) return false;
+if (d.rule !== rule) return false;
+
+if (startDate && d.date < startDate) return false;
+if (endDate && d.date > endDate) return false;
+
+if (!selectedContracts.includes(d.contract)) return false;
+
+return true;
+
+}).sort((a,b)=>{
+const dateCompare = String(a.date).localeCompare(String(b.date));
+if(dateCompare!==0) return dateCompare;
+return Number(a.contract_sort ?? 0)-Number(b.contract_sort ?? 0);
+});
+
+if(direction==="reverse"){
+filtered = filtered.map(d=>({
+...d,
+buy_price:Number(d.sell_price),
+sell_price:Number(d.buy_price),
+profit:-Number(d.profit)
+}));
+}else{
+filtered = filtered.map(d=>({
+...d,
+buy_price:Number(d.buy_price),
+sell_price:Number(d.sell_price),
+profit:Number(d.profit)
+}));
+}
+
+return filtered;
+} {
   const area = document.getElementById("area").value;
   const rule = document.getElementById("rule").value;
   const direction = document.getElementById("direction").value;
