@@ -2,26 +2,31 @@
 
 Automated GitHub-based electricity market analysis using the CSV files in `data/`.
 
-## Charts
+## Separate country/area outputs
 
-### Price trends
-![Price Trends](charts/price_trends.png)
+Each area gets its own folder under:
 
-### Max-Min spreads
-![Spreads](charts/spreads.png)
+- `charts/<AREA>/`
+- `reports/<AREA>/`
 
-### Yesterday vs Today
-![Yesterday vs Today](charts/yesterday_vs_today.png)
+Examples:
+- `charts/FR/price_trends.png`
+- `charts/FR/spreads.png`
+- `charts/FR/yesterday_vs_today.png`
+- `charts/FR/arbitrage_summary.png`
 
-### Arbitrage Summary
-![Arbitrage Summary](charts/arbitrage_summary.png)
+- `reports/FR/summary.csv`
+- `reports/FR/yesterday_vs_today.csv`
+- `reports/FR/anomaly_detection.csv`
+- `reports/FR/arbitrage_opportunities.csv`
+- `reports/FR/arbitrage_summary.csv`
+- `reports/FR/daily_report.md`
 
-## Reports
+## Combined outputs
 
-- `reports/summary.csv`
-- `reports/daily_market_averages.csv`
-- `reports/yesterday_vs_today.csv`
-- `reports/anomaly_detection.csv`
-- `reports/arbitrage_opportunities.csv`
-- `reports/arbitrage_summary.csv`
-- `reports/daily_report.md`
+- `reports/summary_by_area_market.csv`
+- `reports/daily_market_averages_by_area.csv`
+- `reports/yesterday_vs_today_all_areas.csv`
+- `reports/anomaly_detection_all_areas.csv`
+- `reports/arbitrage_opportunities_all_areas.csv`
+- `reports/arbitrage_summary_all_areas.csv`
