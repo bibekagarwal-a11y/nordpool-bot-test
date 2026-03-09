@@ -1,10 +1,16 @@
 let data = [];
 
 const RULE_LABELS = {
-  DA_IDA1: "Day Ahead → IDA1",
-  DA_IDA2: "Day Ahead → IDA2",
-  DA_IDA3: "Day Ahead → IDA3",
-  DA_VWAP: "Day Ahead → Intraday VWAP"
+  DA_IDA1: "Day Ahead ↔ IDA1",
+  DA_IDA2: "Day Ahead ↔ IDA2",
+  DA_IDA3: "Day Ahead ↔ IDA3",
+  DA_VWAP: "Day Ahead ↔ Intraday VWAP",
+  IDA1_IDA2: "IDA1 ↔ IDA2",
+  IDA1_IDA3: "IDA1 ↔ IDA3",
+  IDA1_VWAP: "IDA1 ↔ Intraday VWAP",
+  IDA2_IDA3: "IDA2 ↔ IDA3",
+  IDA2_VWAP: "IDA2 ↔ Intraday VWAP",
+  IDA3_VWAP: "IDA3 ↔ Intraday VWAP"
 };
 
 async function loadData() {
