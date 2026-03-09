@@ -35,37 +35,47 @@
 
   <button type="button" id="selectAllBtn" class="btn secondary">Select all contracts</button>
   <button type="button" id="clearAllBtn" class="btn ghost">Clear all contracts</button>
+
+<div class="controls-grid">
+  <label class="field">
+    <span>Area</span>
+    <select id="area"></select>
+  </label>
+
+  <label class="field">
+    <span>Rule</span>
+    <select id="rule"></select>
+  </label>
+
+  <label class="field">
+    <span>Direction</span>
+    <select id="direction">
+      <option value="forward">Buy first market, sell second market</option>
+      <option value="reverse">Buy second market, sell first market</option>
+    </select>
+  </label>
+
+  <label class="field">
+    <span>Start date</span>
+    <input type="date" id="startDate" />
+  </label>
+
+  <label class="field">
+    <span>End date</span>
+    <input type="date" id="endDate" />
+  </label>
 </div>
 
-        <div class="controls-grid">
-          <label class="field">
-            <span>Area</span>
-            <select id="area"></select>
-          </label>
-
-          <label class="field">
-            <span>Rule</span>
-            <select id="rule"></select>
-          </label>
-
-          <label class="field">
-            <span>Direction</span>
-            <select id="direction">
-              <option value="forward">Buy first market, sell second market</option>
-              <option value="reverse">Buy second market, sell first market</option>
-            </select>
-          </label>
-
-<label class="field">
-  <span>Start date</span>
-  <input type="date" id="startDate">
+<label class="field contract-field">
+  <span>Quarter-hour contracts</span>
+  <select id="contracts" multiple size="12"></select>
 </label>
 
-<label class="field">
-  <span>End date</span>
-  <input type="date" id="endDate">
-</label>
-        </div>
+<div class="button-row" style="margin-top: 12px;">
+  <button type="button" id="selectAllBtn" class="btn secondary">Select all contracts</button>
+  <button type="button" id="clearAllBtn" class="btn ghost">Clear all contracts</button>
+</div>
+          
 
         <label class="field contract-field">
           <span>Quarter-hour contracts</span>
