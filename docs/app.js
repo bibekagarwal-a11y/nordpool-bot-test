@@ -45,6 +45,22 @@ function setOptions(id, values) {
   });
 }
 
+function getSelectedValues(id) {
+  return [...document.getElementById(id).selectedOptions].map(x => x.value);
+}
+
+function selectAll(id) {
+  [...document.getElementById(id).options].forEach(o => {
+    o.selected = true;
+  });
+}
+
+function clearAll(id) {
+  [...document.getElementById(id).options].forEach(o => {
+    o.selected = false;
+  });
+}
+
 function populateSelectors() {
   const areas = unique(data.map(x => x.area)).filter(Boolean).sort();
   const rules = unique(data.map(x => x.rule)).filter(Boolean).sort();
@@ -66,23 +82,26 @@ function updateDates() {
   const dates = unique(filtered.map(x => x.date)).filter(Boolean).sort();
 
   setOptions("date", dates);
+  selectAll("date");
   updateContracts();
 }
 
 function updateContracts() {
   const area = document.getElementById("area").value;
   const rule = document.getElementById("rule").value;
-  const date = document.getElementById("date").value;
+  const selectedDates = getSelectedValues("date");
 
   const filtered = data
-    .filter(d => d.area === area && d.rule === rule && d.date === date)
+    .filter(d =>
+      d.area === area &&
+      d.rule === rule &&
+      selectedDates.includes(d.date)
+    )
     .sort((a, b) => Number(a.contract_sort ?? 0) - Number(b.contract_sort ?? 0));
 
-  setOptions("contracts", filtered.map(x => x.contract));
-
-  [...document.getElementById("contracts").options].forEach(o => {
-    o.selected = true;
-  });
+  const contracts = unique(filtered.map(x => x.contract));
+  setOptions("contracts", contracts);
+  selectAll("contracts");
 
   render();
 }
@@ -90,18 +109,22 @@ function updateContracts() {
 function getFilteredRows() {
   const area = document.getElementById("area").value;
   const rule = document.getElementById("rule").value;
-  const date = document.getElementById("date").value;
   const direction = document.getElementById("direction").value;
-  const selectedContracts = [...document.getElementById("contracts").selectedOptions].map(x => x.value);
+  const selectedDates = getSelectedValues("date");
+  const selectedContracts = getSelectedValues("contracts");
 
   let filtered = data
     .filter(d =>
       d.area === area &&
       d.rule === rule &&
-      d.date === date &&
+      selectedDates.includes(d.date) &&
       selectedContracts.includes(d.contract)
     )
-    .sort((a, b) => Number(a.contract_sort ?? 0) - Number(b.contract_sort ?? 0));
+    .sort((a, b) => {
+      const dateCompare = String(a.date).localeCompare(String(b.date));
+      if (dateCompare !== 0) return dateCompare;
+      return Number(a.contract_sort ?? 0) - Number(b.contract_sort ?? 0);
+    });
 
   if (direction === "reverse") {
     filtered = filtered.map(d => ({
@@ -126,7 +149,7 @@ function render() {
   const filtered = getFilteredRows();
 
   const profits = filtered.map(x => Number(x.profit));
-  const contracts = filtered.map(x => x.contract);
+  const labels = filtered.map(x => `${x.date} | ${x.contract}`);
 
   const total = profits.reduce((a, b) => a + b, 0);
   const avg = profits.length ? total / profits.length : 0;
@@ -152,16 +175,16 @@ function render() {
   });
 
   Plotly.newPlot("contractBar", [{
-    x: contracts,
+    x: labels,
     y: profits,
     type: "bar",
     marker: { color: "#7c3aed" },
     hovertemplate: "%{x}<br>Profit: %{y:.2f} €/MWh<extra></extra>"
   }], {
-    margin: { l: 60, r: 20, t: 20, b: 90 },
+    margin: { l: 60, r: 20, t: 20, b: 120 },
     paper_bgcolor: "white",
     plot_bgcolor: "white",
-    xaxis: { title: "Contract", tickangle: -45, gridcolor: "#eaecf0" },
+    xaxis: { title: "Date | Contract", tickangle: -60, gridcolor: "#eaecf0" },
     yaxis: { title: "Profit (€/MWh)", gridcolor: "#eaecf0" }
   }, {
     responsive: true,
@@ -176,17 +199,17 @@ function render() {
   }, 0);
 
   Plotly.newPlot("cumulativeCurve", [{
-    x: contracts,
+    x: labels,
     y: cumulative,
     mode: "lines+markers",
     line: { color: "#16a34a", width: 3 },
     marker: { size: 6 },
     hovertemplate: "%{x}<br>Cumulative: %{y:.2f} €/MWh<extra></extra>"
   }], {
-    margin: { l: 60, r: 20, t: 20, b: 90 },
+    margin: { l: 60, r: 20, t: 20, b: 120 },
     paper_bgcolor: "white",
     plot_bgcolor: "white",
-    xaxis: { title: "Contract", tickangle: -45, gridcolor: "#eaecf0" },
+    xaxis: { title: "Date | Contract", tickangle: -60, gridcolor: "#eaecf0" },
     yaxis: { title: "Cumulative P&L (€/MWh)", gridcolor: "#eaecf0" }
   }, {
     responsive: true,
@@ -201,6 +224,7 @@ function render() {
     <table>
       <thead>
         <tr>
+          <th>Date</th>
           <th>Contract</th>
           <th>Buy</th>
           <th>Sell</th>
@@ -210,6 +234,7 @@ function render() {
       <tbody>
         ${top10.map(d => `
           <tr>
+            <td>${d.date}</td>
             <td>${d.contract}</td>
             <td>${Number(d.buy_price).toFixed(2)}</td>
             <td>${Number(d.sell_price).toFixed(2)}</td>
@@ -224,6 +249,7 @@ function render() {
     <table>
       <thead>
         <tr>
+          <th>Date</th>
           <th>Contract</th>
           <th>Buy</th>
           <th>Sell</th>
@@ -233,6 +259,7 @@ function render() {
       <tbody>
         ${filtered.map(d => `
           <tr>
+            <td>${d.date}</td>
             <td>${d.contract}</td>
             <td>${Number(d.buy_price).toFixed(2)}</td>
             <td>${Number(d.sell_price).toFixed(2)}</td>
@@ -250,17 +277,23 @@ document.getElementById("date").addEventListener("change", updateContracts);
 document.getElementById("direction").addEventListener("change", render);
 document.getElementById("contracts").addEventListener("change", render);
 
+document.getElementById("selectAllDatesBtn").addEventListener("click", () => {
+  selectAll("date");
+  updateContracts();
+});
+
+document.getElementById("clearAllDatesBtn").addEventListener("click", () => {
+  clearAll("date");
+  render();
+});
+
 document.getElementById("selectAllBtn").addEventListener("click", () => {
-  [...document.getElementById("contracts").options].forEach(o => {
-    o.selected = true;
-  });
+  selectAll("contracts");
   render();
 });
 
 document.getElementById("clearAllBtn").addEventListener("click", () => {
-  [...document.getElementById("contracts").options].forEach(o => {
-    o.selected = false;
-  });
+  clearAll("contracts");
   render();
 });
 
