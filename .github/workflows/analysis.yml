@@ -1,0 +1,29 @@
+name: Electricity Market Analysis
+
+on:
+  schedule:
+    - cron: "0 7 * * *"
+  workflow_dispatch:
+
+jobs:
+  analysis:
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+
+      - run: pip install pandas matplotlib
+
+      - run: python analysis/build_analysis.py
+
+      - run: |
+          git config --global user.name "bot"
+          git config --global user.email "bot@github.com"
+          git add charts
+          git commit -m "Update charts"
+          git push
