@@ -14,6 +14,10 @@ async function loadData() {
     }
 
     populateSelectors();
+    const dates = unique(data.map(x=>x.date)).sort();
+
+document.getElementById("startDate").value = dates[0];
+document.getElementById("endDate").value = dates[dates.length-1];
   } catch (err) {
     console.error(err);
     showError(err.message);
