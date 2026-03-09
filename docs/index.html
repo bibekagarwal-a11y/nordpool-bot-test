@@ -14,7 +14,7 @@
         <p class="eyebrow">Nord Pool Analytics</p>
         <h1>Electricity Arbitrage Explorer</h1>
         <p class="hero-sub">
-          Explore quarter-hour trading opportunities by area, date, and market rule.
+          Explore quarter-hour trading opportunities by area, date, rule, and direction.
         </p>
       </div>
       <div class="hero-badge">
@@ -34,42 +34,35 @@
             <span>Area</span>
             <select id="area"></select>
           </label>
-<label>
-Rule
-<select id="rule">
-<option value="DA_IDA1">DA → IDA1</option>
-<option value="IDA1_DA">IDA1 → DA</option>
 
-<option value="DA_IDA2">DA → IDA2</option>
-<option value="IDA2_DA">IDA2 → DA</option>
+          <label class="field">
+            <span>Rule</span>
+            <select id="rule"></select>
+          </label>
 
-<option value="DA_IDA3">DA → IDA3</option>
-<option value="IDA3_DA">IDA3 → DA</option>
-
-<option value="DA_VWAP">DA → VWAP</option>
-<option value="VWAP_DA">VWAP → DA</option>
-</select>
-</label>
-
+          <label class="field">
+            <span>Direction</span>
+            <select id="direction">
+              <option value="forward">Buy first market, sell second market</option>
+              <option value="reverse">Buy second market, sell first market</option>
+            </select>
+          </label>
 
           <label class="field">
             <span>Date</span>
             <select id="date"></select>
           </label>
-
-          <div class="field field-buttons">
-            <span>Contracts</span>
-            <div class="button-row">
-              <button type="button" id="selectAllBtn" class="btn secondary">Select all</button>
-              <button type="button" id="clearAllBtn" class="btn ghost">Clear all</button>
-            </div>
-          </div>
         </div>
 
         <label class="field contract-field">
           <span>Quarter-hour contracts</span>
           <select id="contracts" multiple size="12"></select>
         </label>
+
+        <div class="button-row" style="margin-top: 12px;">
+          <button type="button" id="selectAllBtn" class="btn secondary">Select all</button>
+          <button type="button" id="clearAllBtn" class="btn ghost">Clear all</button>
+        </div>
       </section>
 
       <section class="summary-grid">
@@ -99,28 +92,31 @@ Rule
         </div>
         <div id="histogram" class="chart"></div>
       </section>
-<section class="panel">
-  <div class="panel-header">
-    <h2>Profit by Contract</h2>
-  </div>
-  <div id="contractBar" class="chart"></div>
-</section>
 
-<section class="panel">
-  <div class="panel-header">
-    <h2>Cumulative Profit Curve</h2>
-  </div>
-  <div id="cumulativeCurve" class="chart"></div>
-</section>
+      <section class="panel">
+        <div class="panel-header">
+          <h2>Profit by Contract</h2>
+          <p>Per-contract arbitrage profit.</p>
+        </div>
+        <div id="contractBar" class="chart"></div>
+      </section>
 
-<section class="panel">
-  <div class="panel-header">
-    <h2>Top 10 Contracts</h2>
-  </div>
-  <div id="topContracts"></div>
-</section>
+      <section class="panel">
+        <div class="panel-header">
+          <h2>Cumulative P&amp;L Curve</h2>
+          <p>Running profit across the selected contracts.</p>
+        </div>
+        <div id="cumulativeCurve" class="chart"></div>
+      </section>
 
-      
+      <section class="panel">
+        <div class="panel-header">
+          <h2>Top 10 Most Profitable Contracts</h2>
+          <p>Best quarter-hours for the selected setup.</p>
+        </div>
+        <div id="topContracts" class="table-wrap"></div>
+      </section>
+
       <section class="panel">
         <div class="panel-header">
           <h2>Contract Breakdown</h2>
