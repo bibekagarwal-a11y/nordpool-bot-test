@@ -1,5 +1,12 @@
 let data = [];
 
+const RULE_LABELS = {
+  DA_IDA1: "Day Ahead → IDA1",
+  DA_IDA2: "Day Ahead → IDA2",
+  DA_IDA3: "Day Ahead → IDA3",
+  DA_VWAP: "Day Ahead → Intraday VWAP"
+};
+
 async function loadData() {
   try {
     const res = await fetch("./data/contract_profits.json", { cache: "no-store" });
@@ -36,14 +43,14 @@ function unique(arr) {
   return [...new Set(arr)];
 }
 
-function setOptions(id, values) {
+function setOptions(id, values, labelMap = null) {
   const el = document.getElementById(id);
   el.innerHTML = "";
 
   values.forEach(v => {
     const opt = document.createElement("option");
     opt.value = v;
-    opt.text = v;
+    opt.text = labelMap && labelMap[v] ? labelMap[v] : v;
     el.appendChild(opt);
   });
 }
@@ -70,11 +77,11 @@ function populateSelectors() {
   const dates = unique(data.map(x => x.date)).filter(Boolean).sort();
 
   if (!areas.length) throw new Error("No areas found in data.");
-  if (!rules.length) throw new Error("No rules found in data.");
+  if (!rules.length) throw new Error("No strategies found in data.");
   if (!dates.length) throw new Error("No dates found in data.");
 
   setOptions("area", areas);
-  setOptions("rule", rules);
+  setOptions("rule", rules, RULE_LABELS);
 
   document.getElementById("startDate").value = dates[0];
   document.getElementById("endDate").value = dates[dates.length - 1];
@@ -151,43 +158,67 @@ function getFilteredRows() {
   return filtered;
 }
 
-function render() {
-  const filtered = getFilteredRows();
-
+function renderMetricCards(filtered) {
   const profits = filtered.map(x => Number(x.profit));
-  const labels = filtered.map(x => `${x.date} | ${x.contract}`);
-
   const total = profits.reduce((a, b) => a + b, 0);
   const avg = profits.length ? total / profits.length : 0;
+  const winRate = profits.length ? (profits.filter(x => x > 0).length / profits.length) * 100 : 0;
 
-  const profitEl = document.getElementById("profit");
-  const countEl = document.getElementById("contractCount");
-  const avgEl = document.getElementById("avgProfit");
+  const best = filtered.length ? [...filtered].sort((a, b) => b.profit - a.profit)[0] : null;
+  const worst = filtered.length ? [...filtered].sort((a, b) => a.profit - b.profit)[0] : null;
 
-  if (profitEl) profitEl.innerText = `${total.toFixed(2)} €/MWh`;
-  if (countEl) countEl.innerText = `${filtered.length}`;
-  if (avgEl) avgEl.innerText = `${avg.toFixed(2)} €/MWh`;
+  document.getElementById("profit").innerText = `${total.toFixed(2)} €/MWh`;
+  document.getElementById("contractCount").innerText = `${filtered.length}`;
+  document.getElementById("avgProfit").innerText = `${avg.toFixed(2)} €/MWh`;
+  document.getElementById("winRate").innerText = `${winRate.toFixed(1)}%`;
+
+  const bestEl = document.getElementById("bestContract");
+  const worstEl = document.getElementById("worstContract");
+
+  if (best) {
+    bestEl.innerHTML = `<span class="positive-text">${best.date}<br>${best.contract}<br>${Number(best.profit).toFixed(2)} €/MWh</span>`;
+  } else {
+    bestEl.innerText = "-";
+  }
+
+  if (worst) {
+    worstEl.innerHTML = `<span class="negative-text">${worst.date}<br>${worst.contract}<br>${Number(worst.profit).toFixed(2)} €/MWh</span>`;
+  } else {
+    worstEl.innerText = "-";
+  }
+}
+
+function renderHistogram(filtered) {
+  const profits = filtered.map(x => Number(x.profit));
 
   Plotly.newPlot("histogram", [{
     x: profits,
     type: "histogram",
-    marker: { color: "#2563eb" }
+    marker: { color: "#2563eb" },
+    hovertemplate: "Profit: %{x:.2f} €/MWh<br>Count: %{y}<extra></extra>"
   }], {
     margin: { l: 60, r: 20, t: 20, b: 60 },
     paper_bgcolor: "white",
     plot_bgcolor: "white",
-    xaxis: { title: "Profit per contract (€/MWh)", gridcolor: "#eaecf0" },
+    xaxis: { title: "Profit per row (€/MWh)", gridcolor: "#eaecf0" },
     yaxis: { title: "Count", gridcolor: "#eaecf0" }
   }, {
     responsive: true,
     displayModeBar: false
   });
+}
+
+function renderContractBar(filtered) {
+  const labels = filtered.map(x => `${x.date} | ${x.contract}`);
+  const profits = filtered.map(x => Number(x.profit));
+  const colors = profits.map(v => v >= 0 ? "#16a34a" : "#dc2626");
 
   Plotly.newPlot("contractBar", [{
     x: labels,
     y: profits,
     type: "bar",
-    marker: { color: "#7c3aed" }
+    marker: { color: colors },
+    hovertemplate: "%{x}<br>Profit: %{y:.2f} €/MWh<extra></extra>"
   }], {
     margin: { l: 60, r: 20, t: 20, b: 120 },
     paper_bgcolor: "white",
@@ -198,6 +229,11 @@ function render() {
     responsive: true,
     displayModeBar: false
   });
+}
+
+function renderCumulativeCurve(filtered) {
+  const labels = filtered.map(x => `${x.date} | ${x.contract}`);
+  const profits = filtered.map(x => Number(x.profit));
 
   const cumulative = [];
   profits.reduce((acc, val, i) => {
@@ -211,7 +247,8 @@ function render() {
     y: cumulative,
     mode: "lines+markers",
     line: { color: "#16a34a", width: 3 },
-    marker: { size: 6 }
+    marker: { size: 6 },
+    hovertemplate: "%{x}<br>Cumulative: %{y:.2f} €/MWh<extra></extra>"
   }], {
     margin: { l: 60, r: 20, t: 20, b: 120 },
     paper_bgcolor: "white",
@@ -222,64 +259,122 @@ function render() {
     responsive: true,
     displayModeBar: false
   });
+}
 
+function renderHeatmap(filtered) {
+  if (!filtered.length) {
+    Plotly.newPlot("heatmap", [], { annotations: [{ text: "No data", showarrow: false }] });
+    return;
+  }
+
+  const dates = unique(filtered.map(x => x.date)).sort();
+  const contracts = unique(filtered.map(x => x.contract)).sort((a, b) => {
+    const aRow = filtered.find(x => x.contract === a);
+    const bRow = filtered.find(x => x.contract === b);
+    return Number(aRow?.contract_sort ?? 0) - Number(bRow?.contract_sort ?? 0);
+  });
+
+  const matrix = contracts.map(contract => {
+    return dates.map(date => {
+      const rows = filtered.filter(r => r.contract === contract && r.date === date);
+      if (!rows.length) return null;
+      const avg = rows.reduce((s, r) => s + Number(r.profit), 0) / rows.length;
+      return avg;
+    });
+  });
+
+  Plotly.newPlot("heatmap", [{
+    z: matrix,
+    x: dates,
+    y: contracts,
+    type: "heatmap",
+    colorscale: "RdYlGn",
+    reversescale: false,
+    hovertemplate: "Date: %{x}<br>Contract: %{y}<br>Avg Profit: %{z:.2f} €/MWh<extra></extra>"
+  }], {
+    margin: { l: 90, r: 20, t: 20, b: 80 },
+    paper_bgcolor: "white",
+    plot_bgcolor: "white",
+    xaxis: { title: "Date" },
+    yaxis: { title: "Quarter-hour contract" }
+  }, {
+    responsive: true,
+    displayModeBar: false
+  });
+}
+
+function renderTopBottomTables(filtered) {
   const top10 = [...filtered].sort((a, b) => b.profit - a.profit).slice(0, 10);
+  const bottom10 = [...filtered].sort((a, b) => a.profit - b.profit).slice(0, 10);
 
-  const topContractsEl = document.getElementById("topContracts");
-  if (topContractsEl) {
-    topContractsEl.innerHTML = `
-      <table>
-        <thead>
-          <tr>
-            <th>Date</th>
-            <th>Contract</th>
-            <th>Buy</th>
-            <th>Sell</th>
-            <th>Profit</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${top10.map(d => `
-            <tr>
-              <td>${d.date}</td>
-              <td>${d.contract}</td>
-              <td>${Number(d.buy_price).toFixed(2)}</td>
-              <td>${Number(d.sell_price).toFixed(2)}</td>
-              <td>${Number(d.profit).toFixed(2)}</td>
-            </tr>
-          `).join("")}
-        </tbody>
-      </table>
-    `;
-  }
+  document.getElementById("topContracts").innerHTML = buildMiniTable(top10);
+  document.getElementById("bottomContracts").innerHTML = buildMiniTable(bottom10);
+}
 
-  const tableEl = document.getElementById("table");
-  if (tableEl) {
-    tableEl.innerHTML = `
-      <table>
-        <thead>
+function buildMiniTable(rows) {
+  return `
+    <table>
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Contract</th>
+          <th>Buy</th>
+          <th>Sell</th>
+          <th>Profit</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${rows.map(d => `
           <tr>
-            <th>Date</th>
-            <th>Contract</th>
-            <th>Buy</th>
-            <th>Sell</th>
-            <th>Profit</th>
+            <td>${d.date}</td>
+            <td>${d.contract}</td>
+            <td>${Number(d.buy_price).toFixed(2)}</td>
+            <td>${Number(d.sell_price).toFixed(2)}</td>
+            <td>${Number(d.profit).toFixed(2)}</td>
           </tr>
-        </thead>
-        <tbody>
-          ${filtered.map(d => `
-            <tr>
-              <td>${d.date}</td>
-              <td>${d.contract}</td>
-              <td>${Number(d.buy_price).toFixed(2)}</td>
-              <td>${Number(d.sell_price).toFixed(2)}</td>
-              <td>${Number(d.profit).toFixed(2)}</td>
-            </tr>
-          `).join("")}
-        </tbody>
-      </table>
-    `;
-  }
+        `).join("")}
+      </tbody>
+    </table>
+  `;
+}
+
+function renderBreakdownTable(filtered) {
+  document.getElementById("table").innerHTML = `
+    <table>
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Contract</th>
+          <th>Buy</th>
+          <th>Sell</th>
+          <th>Profit</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${filtered.map(d => `
+          <tr>
+            <td>${d.date}</td>
+            <td>${d.contract}</td>
+            <td>${Number(d.buy_price).toFixed(2)}</td>
+            <td>${Number(d.sell_price).toFixed(2)}</td>
+            <td>${Number(d.profit).toFixed(2)}</td>
+          </tr>
+        `).join("")}
+      </tbody>
+    </table>
+  `;
+}
+
+function render() {
+  const filtered = getFilteredRows();
+
+  renderMetricCards(filtered);
+  renderCumulativeCurve(filtered);
+  renderContractBar(filtered);
+  renderHeatmap(filtered);
+  renderHistogram(filtered);
+  renderTopBottomTables(filtered);
+  renderBreakdownTable(filtered);
 }
 
 document.getElementById("area").addEventListener("change", updateContracts);
