@@ -595,9 +595,11 @@ function renderBreakdownTable(filtered) {
 function render() {
   const filtered = getFilteredRows();
 
+
   renderMetricCards(filtered);
-  renderBessStrategy(filtered);
-  renderCumulativeCurve(filtered);
+renderBessStrategy(filtered);
+renderMultiCycleBess(filtered);
+renderCumulativeCurve(filtered);
   renderContractBar(filtered);
   renderHeatmap(filtered);
   renderHistogram(filtered);
