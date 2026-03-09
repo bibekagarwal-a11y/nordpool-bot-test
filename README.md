@@ -28,3 +28,11 @@ Secrets (optional):
 ## Manual backfill
 Actions → "Nord Pool Bot" → Run workflow
 Set input `backfill` to true to download from START_DATE up to yesterday.
+
+# Nordpool Electricity Market Analysis
+
+Daily automated analysis of electricity market prices.
+
+## Price Comparison
+
+![Prices](charts/price_trends.png)
