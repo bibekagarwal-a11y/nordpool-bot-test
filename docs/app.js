@@ -67,7 +67,83 @@ function clearAllOptions(id) {
   });
 }
 
-function getSelectedValues(id) {
+function getSelectedValues(id)
+function setActivePreset(buttonId) {
+  document.querySelectorAll(".preset-btn").forEach(btn => {
+    btn.classList.remove("active-preset");
+  });
+
+  if (buttonId) {
+    const btn = document.getElementById(buttonId);
+    if (btn) btn.classList.add("active-preset");
+  }
+}
+
+function parseDateContractToIndex(row) {
+  const datePart = String(row.date);
+  const contractPart = Number(row.contract_sort ?? 0);
+  return { datePart, contractPart };
+}
+
+function compareRowsChronologically(a, b) {
+  const aKey = parseDateContractToIndex(a);
+  const bKey = parseDateContractToIndex(b);
+
+  const dateCompare = aKey.datePart.localeCompare(bKey.datePart);
+  if (dateCompare !== 0) return dateCompare;
+  return aKey.contractPart - bKey.contractPart;
+}
+
+function renderBessStrategy(filtered) {
+  const bessEl = document.getElementById("bessStrategy");
+  if (!bessEl) return;
+
+  if (!filtered.length) {
+    bessEl.innerHTML = "-";
+    return;
+  }
+
+  const ordered = [...filtered].sort(compareRowsChronologically);
+
+  let bestSpread = -Infinity;
+  let bestChargeRow = null;
+  let bestDischargeRow = null;
+  let minBuySoFar = null;
+
+  for (const row of ordered) {
+    const buyPrice = Number(row.buy_price);
+    const sellPrice = Number(row.sell_price);
+
+    if (!Number.isFinite(buyPrice) || !Number.isFinite(sellPrice)) continue;
+
+    if (!minBuySoFar || buyPrice < Number(minBuySoFar.buy_price)) {
+      minBuySoFar = row;
+    }
+
+    if (minBuySoFar) {
+      const spread = sellPrice - Number(minBuySoFar.buy_price);
+      if (spread > bestSpread && compareRowsChronologically(minBuySoFar, row) <= 0) {
+        bestSpread = spread;
+        bestChargeRow = minBuySoFar;
+        bestDischargeRow = row;
+      }
+    }
+  }
+
+  if (!bestChargeRow || !bestDischargeRow || !Number.isFinite(bestSpread)) {
+    bessEl.innerHTML = "No valid BESS cycle found for the current selection.";
+    return;
+  }
+
+  bessEl.innerHTML = `
+    <strong>Charge:</strong> ${bestChargeRow.date} | ${bestChargeRow.contract} at ${Number(bestChargeRow.buy_price).toFixed(2)} €/MWh
+    <br>
+    <strong>Discharge:</strong> ${bestDischargeRow.date} | ${bestDischargeRow.contract} at ${Number(bestDischargeRow.sell_price).toFixed(2)} €/MWh
+    <br>
+    <strong>Single-cycle spread:</strong> <span class="${bestSpread >= 0 ? 'positive-text' : 'negative-text'}">${bestSpread.toFixed(2)} €/MWh</span>
+  `;
+}
+{
   return [...document.getElementById(id).selectedOptions].map(x => x.value);
 }
 function parseContractStartMinutes(contractLabel) {
