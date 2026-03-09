@@ -651,3 +651,6 @@ document.getElementById("presetEveningBtn").addEventListener("click", () => {
 });
 
 loadData();
+document.getElementById("bessCapacity").addEventListener("change", render);
+document.getElementById("bessPower").addEventListener("change", render);
+document.getElementById("bessEfficiency").addEventListener("change", render);
