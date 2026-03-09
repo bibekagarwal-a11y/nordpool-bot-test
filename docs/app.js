@@ -348,3 +348,5 @@ document.getElementById("clearAllBtn").addEventListener("click", () => {
 });
 
 loadData();
+document.getElementById("startDate").addEventListener("change", render);
+document.getElementById("endDate").addEventListener("change", render);
