@@ -23,11 +23,57 @@
     </header>
 
     <main class="dashboard">
-      <section class="panel controls-panel">
-        <div class="panel-header">
-          <h2>Filters</h2>
-          <p>Choose the market setup you want to analyse.</p>
-        </div>
+<section class="panel controls-panel">
+
+<div class="filters-top">
+
+<div class="filter">
+<label>Area</label>
+<select id="area"></select>
+</div>
+
+<div class="filter">
+<label>Rule</label>
+<select id="rule"></select>
+</div>
+
+<div class="filter">
+<label>Direction</label>
+<select id="direction">
+<option value="forward">Buy first → Sell second</option>
+<option value="reverse">Buy second → Sell first</option>
+</select>
+</div>
+
+<div class="filter">
+<label>Start</label>
+<input type="date" id="startDate">
+</div>
+
+<div class="filter">
+<label>End</label>
+<input type="date" id="endDate">
+</div>
+
+</div>
+
+<div class="contracts-panel">
+
+<div class="contracts-header">
+<h3>Quarter-hour contracts</h3>
+
+<div class="contract-buttons">
+<button id="selectAllBtn">Select all</button>
+<button id="clearAllBtn">Clear</button>
+</div>
+
+</div>
+
+<select id="contracts" multiple size="18"></select>
+
+</div>
+
+</section>
 
         <div class="button-row" style="margin-top: 12px;">
   <button type="button" id="selectAllDatesBtn" class="btn secondary">Select all dates</button>
