@@ -405,22 +405,3 @@ tbody tr:hover {
     font-size: 28px;
   }
 }
-.bess-config-box {
-  margin-top: 16px;
-  border: 1px solid #e5e7eb;
-  background: #f8fafc;
-  border-radius: 14px;
-  padding: 14px 16px;
-}
-
-.bess-config-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(140px, 1fr));
-  gap: 12px;
-}
-
-@media (max-width: 900px) {
-  .bess-config-grid {
-    grid-template-columns: 1fr;
-  }
-}
