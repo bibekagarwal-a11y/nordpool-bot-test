@@ -67,7 +67,10 @@ function clearAllOptions(id) {
   });
 }
 
-function getSelectedValues(id)
+function getSelectedValues(id) {
+  return [...document.getElementById(id).selectedOptions].map(x => x.value);
+}
+
 function setActivePreset(buttonId) {
   document.querySelectorAll(".preset-btn").forEach(btn => {
     btn.classList.remove("active-preset");
@@ -77,6 +80,53 @@ function setActivePreset(buttonId) {
     const btn = document.getElementById(buttonId);
     if (btn) btn.classList.add("active-preset");
   }
+}
+
+function parseContractStartMinutes(contractLabel) {
+  if (!contractLabel || !contractLabel.includes("-")) return null;
+  const start = contractLabel.split("-")[0];
+  const [hh, mm] = start.split(":").map(Number);
+  if (!Number.isFinite(hh) || !Number.isFinite(mm)) return null;
+  return hh * 60 + mm;
+}
+
+function applyContractPreset(presetName) {
+  const options = [...document.getElementById("contracts").options];
+
+  options.forEach(opt => {
+    const mins = parseContractStartMinutes(opt.value);
+    if (mins === null) {
+      opt.selected = false;
+      return;
+    }
+
+    let selected = false;
+
+    if (presetName === "base") {
+      selected = true;
+    } else if (presetName === "peak") {
+      selected = mins >= 8 * 60 && mins < 20 * 60;
+    } else if (presetName === "offpeak") {
+      selected = mins < 8 * 60 || mins >= 20 * 60;
+    } else if (presetName === "morning") {
+      selected = mins >= 6 * 60 && mins < 12 * 60;
+    } else if (presetName === "evening") {
+      selected = mins >= 17 * 60 && mins < 23 * 60;
+    }
+
+    opt.selected = selected;
+  });
+
+  const presetMap = {
+    base: "presetBaseBtn",
+    peak: "presetPeakBtn",
+    offpeak: "presetOffPeakBtn",
+    morning: "presetMorningBtn",
+    evening: "presetEveningBtn"
+  };
+
+  setActivePreset(presetMap[presetName] || null);
+  render();
 }
 
 function parseDateContractToIndex(row) {
@@ -92,6 +142,116 @@ function compareRowsChronologically(a, b) {
   const dateCompare = aKey.datePart.localeCompare(bKey.datePart);
   if (dateCompare !== 0) return dateCompare;
   return aKey.contractPart - bKey.contractPart;
+}
+
+function populateSelectors() {
+  const areas = unique(data.map(x => x.area)).filter(Boolean).sort();
+  const rules = unique(data.map(x => x.rule)).filter(Boolean).sort();
+  const dates = unique(data.map(x => x.date)).filter(Boolean).sort();
+
+  if (!areas.length) throw new Error("No areas found in data.");
+  if (!rules.length) throw new Error("No strategies found in data.");
+  if (!dates.length) throw new Error("No dates found in data.");
+
+  setOptions("area", areas);
+  setOptions("rule", rules, RULE_LABELS);
+
+  document.getElementById("startDate").value = dates[0];
+  document.getElementById("endDate").value = dates[dates.length - 1];
+
+  updateContracts();
+}
+
+function updateContracts() {
+  const area = document.getElementById("area").value;
+  const rule = document.getElementById("rule").value;
+  const startDate = document.getElementById("startDate").value;
+  const endDate = document.getElementById("endDate").value;
+
+  const filtered = data
+    .filter(d => {
+      if (d.area !== area) return false;
+      if (d.rule !== rule) return false;
+      if (startDate && d.date < startDate) return false;
+      if (endDate && d.date > endDate) return false;
+      return true;
+    })
+    .sort(compareRowsChronologically);
+
+  const contracts = unique(filtered.map(x => x.contract));
+  setOptions("contracts", contracts);
+  selectAllOptions("contracts");
+  setActivePreset("presetBaseBtn");
+
+  render();
+}
+
+function getFilteredRows() {
+  const area = document.getElementById("area").value;
+  const rule = document.getElementById("rule").value;
+  const direction = document.getElementById("direction").value;
+  const startDate = document.getElementById("startDate").value;
+  const endDate = document.getElementById("endDate").value;
+  const selectedContracts = getSelectedValues("contracts");
+
+  let filtered = data
+    .filter(d => {
+      if (d.area !== area) return false;
+      if (d.rule !== rule) return false;
+      if (startDate && d.date < startDate) return false;
+      if (endDate && d.date > endDate) return false;
+      if (!selectedContracts.includes(d.contract)) return false;
+      return true;
+    })
+    .sort(compareRowsChronologically);
+
+  if (direction === "reverse") {
+    filtered = filtered.map(d => ({
+      ...d,
+      buy_price: Number(d.sell_price),
+      sell_price: Number(d.buy_price),
+      profit: -Number(d.profit)
+    }));
+  } else {
+    filtered = filtered.map(d => ({
+      ...d,
+      buy_price: Number(d.buy_price),
+      sell_price: Number(d.sell_price),
+      profit: Number(d.profit)
+    }));
+  }
+
+  return filtered;
+}
+
+function renderMetricCards(filtered) {
+  const profits = filtered.map(x => Number(x.profit));
+  const total = profits.reduce((a, b) => a + b, 0);
+  const avg = profits.length ? total / profits.length : 0;
+  const winRate = profits.length ? (profits.filter(x => x > 0).length / profits.length) * 100 : 0;
+
+  const best = filtered.length ? [...filtered].sort((a, b) => b.profit - a.profit)[0] : null;
+  const worst = filtered.length ? [...filtered].sort((a, b) => a.profit - b.profit)[0] : null;
+
+  document.getElementById("profit").innerText = `${total.toFixed(2)} €/MWh`;
+  document.getElementById("contractCount").innerText = `${filtered.length}`;
+  document.getElementById("avgProfit").innerText = `${avg.toFixed(2)} €/MWh`;
+  document.getElementById("winRate").innerText = `${winRate.toFixed(1)}%`;
+
+  const bestEl = document.getElementById("bestContract");
+  const worstEl = document.getElementById("worstContract");
+
+  if (best) {
+    bestEl.innerHTML = `<span class="positive-text">${best.date}<br>${best.contract}<br>${Number(best.profit).toFixed(2)} €/MWh</span>`;
+  } else {
+    bestEl.innerText = "-";
+  }
+
+  if (worst) {
+    worstEl.innerHTML = `<span class="negative-text">${worst.date}<br>${worst.contract}<br>${Number(worst.profit).toFixed(2)} €/MWh</span>`;
+  } else {
+    worstEl.innerText = "-";
+  }
 }
 
 function renderBessStrategy(filtered) {
@@ -142,200 +302,6 @@ function renderBessStrategy(filtered) {
     <br>
     <strong>Single-cycle spread:</strong> <span class="${bestSpread >= 0 ? 'positive-text' : 'negative-text'}">${bestSpread.toFixed(2)} €/MWh</span>
   `;
-}
-{
-  return [...document.getElementById(id).selectedOptions].map(x => x.value);
-}
-function parseContractStartMinutes(contractLabel) {
-  if (!contractLabel || !contractLabel.includes("-")) return null;
-  const start = contractLabel.split("-")[0];
-  const [hh, mm] = start.split(":").map(Number);
-  if (!Number.isFinite(hh) || !Number.isFinite(mm)) return null;
-  return hh * 60 + mm;
-}
-
-function applyContractPreset(presetName) {
-  const options = [...document.getElementById("contracts").options];
-
-  options.forEach(opt => {
-    const mins = parseContractStartMinutes(opt.value);
-    if (mins === null) {
-      opt.selected = false;
-      return;
-    }
-
-    let selected = false;
-
-    if (presetName === "base") {
-      selected = true;
-    } else if (presetName === "peak") {
-      selected = mins >= 8 * 60 && mins < 20 * 60;
-    } else if (presetName === "offpeak") {
-      selected = mins < 8 * 60 || mins >= 20 * 60;
-    } else if (presetName === "morning") {
-      selected = mins >= 6 * 60 && mins < 12 * 60;
-    } else if (presetName === "evening") {
-      selected = mins >= 17 * 60 && mins < 23 * 60;
-    }
-
-    opt.selected = selected;
-  });
-
-  const presetMap = {
-    base: "presetBaseBtn",
-    peak: "presetPeakBtn",
-    offpeak: "presetOffPeakBtn",
-    morning: "presetMorningBtn",
-    evening: "presetEveningBtn"
-  };
-
-  setActivePreset(presetMap[presetName] || null);
-  render();
-}
-  options.forEach(opt => {
-    const mins = parseContractStartMinutes(opt.value);
-    if (mins === null) {
-      opt.selected = false;
-      return;
-    }
-
-    let selected = false;
-
-    // time windows use start time of contract
-    if (presetName === "base") {
-      selected = true; // all day
-    } else if (presetName === "peak") {
-      selected = mins >= 8 * 60 && mins < 20 * 60;        // 08:00-19:45
-    } else if (presetName === "offpeak") {
-      selected = mins < 8 * 60 || mins >= 20 * 60;        // before 08:00 or after 20:00
-    } else if (presetName === "morning") {
-      selected = mins >= 6 * 60 && mins < 12 * 60;        // 06:00-11:45
-    } else if (presetName === "evening") {
-      selected = mins >= 17 * 60 && mins < 23 * 60;       // 17:00-22:45
-    }
-
-    opt.selected = selected;
-  });
-
-  render();
-}
-
-
-function populateSelectors() {
-  const areas = unique(data.map(x => x.area)).filter(Boolean).sort();
-  const rules = unique(data.map(x => x.rule)).filter(Boolean).sort();
-  const dates = unique(data.map(x => x.date)).filter(Boolean).sort();
-
-  if (!areas.length) throw new Error("No areas found in data.");
-  if (!rules.length) throw new Error("No strategies found in data.");
-  if (!dates.length) throw new Error("No dates found in data.");
-
-  setOptions("area", areas);
-  setOptions("rule", rules, RULE_LABELS);
-
-  document.getElementById("startDate").value = dates[0];
-  document.getElementById("endDate").value = dates[dates.length - 1];
-
-  updateContracts();
-}
-
-function updateContracts() {
-  const area = document.getElementById("area").value;
-  const rule = document.getElementById("rule").value;
-  const startDate = document.getElementById("startDate").value;
-  const endDate = document.getElementById("endDate").value;
-
-  const filtered = data
-    .filter(d => {
-      if (d.area !== area) return false;
-      if (d.rule !== rule) return false;
-      if (startDate && d.date < startDate) return false;
-      if (endDate && d.date > endDate) return false;
-      return true;
-    })
-    .sort((a, b) => {
-      const dateCompare = String(a.date).localeCompare(String(b.date));
-      if (dateCompare !== 0) return dateCompare;
-      return Number(a.contract_sort ?? 0) - Number(b.contract_sort ?? 0);
-    });
-
-  const contracts = unique(filtered.map(x => x.contract));
-  setOptions("contracts", contracts);
-  selectAllOptions("contracts");
-
-  render();
-}
-
-function getFilteredRows() {
-  const area = document.getElementById("area").value;
-  const rule = document.getElementById("rule").value;
-  const direction = document.getElementById("direction").value;
-  const startDate = document.getElementById("startDate").value;
-  const endDate = document.getElementById("endDate").value;
-  const selectedContracts = getSelectedValues("contracts");
-
-  let filtered = data
-    .filter(d => {
-      if (d.area !== area) return false;
-      if (d.rule !== rule) return false;
-      if (startDate && d.date < startDate) return false;
-      if (endDate && d.date > endDate) return false;
-      if (!selectedContracts.includes(d.contract)) return false;
-      return true;
-    })
-    .sort((a, b) => {
-      const dateCompare = String(a.date).localeCompare(String(b.date));
-      if (dateCompare !== 0) return dateCompare;
-      return Number(a.contract_sort ?? 0) - Number(b.contract_sort ?? 0);
-    });
-
-  if (direction === "reverse") {
-    filtered = filtered.map(d => ({
-      ...d,
-      buy_price: Number(d.sell_price),
-      sell_price: Number(d.buy_price),
-      profit: -Number(d.profit)
-    }));
-  } else {
-    filtered = filtered.map(d => ({
-      ...d,
-      buy_price: Number(d.buy_price),
-      sell_price: Number(d.sell_price),
-      profit: Number(d.profit)
-    }));
-  }
-
-  return filtered;
-}
-
-function renderMetricCards(filtered) {
-  const profits = filtered.map(x => Number(x.profit));
-  const total = profits.reduce((a, b) => a + b, 0);
-  const avg = profits.length ? total / profits.length : 0;
-  const winRate = profits.length ? (profits.filter(x => x > 0).length / profits.length) * 100 : 0;
-
-  const best = filtered.length ? [...filtered].sort((a, b) => b.profit - a.profit)[0] : null;
-  const worst = filtered.length ? [...filtered].sort((a, b) => a.profit - b.profit)[0] : null;
-
-  document.getElementById("profit").innerText = `${total.toFixed(2)} €/MWh`;
-  document.getElementById("contractCount").innerText = `${filtered.length}`;
-  document.getElementById("avgProfit").innerText = `${avg.toFixed(2)} €/MWh`;
-  document.getElementById("winRate").innerText = `${winRate.toFixed(1)}%`;
-
-  const bestEl = document.getElementById("bestContract");
-  const worstEl = document.getElementById("worstContract");
-
-  if (best) {
-    bestEl.innerHTML = `<span class="positive-text">${best.date}<br>${best.contract}<br>${Number(best.profit).toFixed(2)} €/MWh</span>`;
-  } else {
-    bestEl.innerText = "-";
-  }
-
-  if (worst) {
-    worstEl.innerHTML = `<span class="negative-text">${worst.date}<br>${worst.contract}<br>${Number(worst.profit).toFixed(2)} €/MWh</span>`;
-  } else {
-    worstEl.innerText = "-";
-  }
 }
 
 function renderHistogram(filtered) {
@@ -519,6 +485,7 @@ function render() {
   const filtered = getFilteredRows();
 
   renderMetricCards(filtered);
+  renderBessStrategy(filtered);
   renderCumulativeCurve(filtered);
   renderContractBar(filtered);
   renderHeatmap(filtered);
@@ -532,6 +499,7 @@ document.getElementById("rule").addEventListener("change", updateContracts);
 document.getElementById("direction").addEventListener("change", render);
 document.getElementById("startDate").addEventListener("change", updateContracts);
 document.getElementById("endDate").addEventListener("change", updateContracts);
+
 document.getElementById("contracts").addEventListener("change", () => {
   setActivePreset(null);
   render();
@@ -539,15 +507,15 @@ document.getElementById("contracts").addEventListener("change", () => {
 
 document.getElementById("selectAllBtn").addEventListener("click", () => {
   selectAllOptions("contracts");
+  setActivePreset("presetBaseBtn");
   render();
 });
 
 document.getElementById("clearAllBtn").addEventListener("click", () => {
   clearAllOptions("contracts");
+  setActivePreset(null);
   render();
 });
-
-loadData();
 
 document.getElementById("presetBaseBtn").addEventListener("click", () => {
   applyContractPreset("base");
@@ -568,3 +536,5 @@ document.getElementById("presetMorningBtn").addEventListener("click", () => {
 document.getElementById("presetEveningBtn").addEventListener("click", () => {
   applyContractPreset("evening");
 });
+
+loadData();
