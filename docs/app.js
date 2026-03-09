@@ -166,6 +166,41 @@ function applyContractPreset(presetName) {
 
     let selected = false;
 
+    if (presetName === "base") {
+      selected = true;
+    } else if (presetName === "peak") {
+      selected = mins >= 8 * 60 && mins < 20 * 60;
+    } else if (presetName === "offpeak") {
+      selected = mins < 8 * 60 || mins >= 20 * 60;
+    } else if (presetName === "morning") {
+      selected = mins >= 6 * 60 && mins < 12 * 60;
+    } else if (presetName === "evening") {
+      selected = mins >= 17 * 60 && mins < 23 * 60;
+    }
+
+    opt.selected = selected;
+  });
+
+  const presetMap = {
+    base: "presetBaseBtn",
+    peak: "presetPeakBtn",
+    offpeak: "presetOffPeakBtn",
+    morning: "presetMorningBtn",
+    evening: "presetEveningBtn"
+  };
+
+  setActivePreset(presetMap[presetName] || null);
+  render();
+}
+  options.forEach(opt => {
+    const mins = parseContractStartMinutes(opt.value);
+    if (mins === null) {
+      opt.selected = false;
+      return;
+    }
+
+    let selected = false;
+
     // time windows use start time of contract
     if (presetName === "base") {
       selected = true; // all day
