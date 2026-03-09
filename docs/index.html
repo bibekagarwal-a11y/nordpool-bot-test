@@ -23,11 +23,71 @@
     </header>
 
     <main class="dashboard">
+
+
       <section class="panel controls-panel">
-        <div class="panel-header">
-          <h2>Scenario Setup</h2>
-          <p>Configure the arbitrage strategy and contract window you want to test.</p>
+  <div class="panel-header">
+    <h2>Scenario Setup</h2>
+    <p>Configure the arbitrage strategy and contract window you want to test.</p>
+  </div>
+
+  <div class="controls-layout">
+    <div class="scenario-panel">
+      <div class="filters-top">
+        <div class="filter">
+          <label for="area">Area</label>
+          <select id="area"></select>
         </div>
+
+        <div class="filter">
+          <label for="rule">Strategy</label>
+          <select id="rule"></select>
+        </div>
+
+        <div class="filter">
+          <label for="direction">Direction</label>
+          <select id="direction">
+            <option value="forward">Buy first → Sell second</option>
+            <option value="reverse">Buy second → Sell first</option>
+          </select>
+        </div>
+
+        <div class="filter">
+          <label for="startDate">Start date</label>
+          <input type="date" id="startDate" />
+        </div>
+
+        <div class="filter">
+          <label for="endDate">End date</label>
+          <input type="date" id="endDate" />
+        </div>
+      </div>
+
+      <div class="bess-box">
+        <div class="bess-title">Best BESS Strategy</div>
+        <div id="bessStrategy" class="bess-content">-</div>
+      </div>
+    </div>
+
+    <div class="contracts-panel compact-contracts-panel">
+      <div class="contracts-header">
+        <h3>Quarter-hour contracts</h3>
+      </div>
+
+      <div class="contract-buttons">
+        <button type="button" id="selectAllBtn" class="btn secondary">Select all</button>
+        <button type="button" id="clearAllBtn" class="btn ghost">Clear</button>
+        <button type="button" id="presetBaseBtn" class="btn ghost preset-btn">Base</button>
+        <button type="button" id="presetPeakBtn" class="btn ghost preset-btn">Peak</button>
+        <button type="button" id="presetOffPeakBtn" class="btn ghost preset-btn">Off-peak</button>
+        <button type="button" id="presetMorningBtn" class="btn ghost preset-btn">Morning</button>
+        <button type="button" id="presetEveningBtn" class="btn ghost preset-btn">Evening</button>
+      </div>
+
+      <select id="contracts" multiple size="12"></select>
+    </div>
+  </div>
+</section>
 
         <div class="filters-top">
           <div class="filter">
