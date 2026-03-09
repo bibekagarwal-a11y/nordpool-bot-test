@@ -434,3 +434,23 @@ document.getElementById("clearAllBtn").addEventListener("click", () => {
 });
 
 loadData();
+
+document.getElementById("presetBaseBtn").addEventListener("click", () => {
+  applyContractPreset("base");
+});
+
+document.getElementById("presetPeakBtn").addEventListener("click", () => {
+  applyContractPreset("peak");
+});
+
+document.getElementById("presetOffPeakBtn").addEventListener("click", () => {
+  applyContractPreset("offpeak");
+});
+
+document.getElementById("presetMorningBtn").addEventListener("click", () => {
+  applyContractPreset("morning");
+});
+
+document.getElementById("presetEveningBtn").addEventListener("click", () => {
+  applyContractPreset("evening");
+});
