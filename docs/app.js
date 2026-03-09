@@ -70,6 +70,45 @@ function clearAllOptions(id) {
 function getSelectedValues(id) {
   return [...document.getElementById(id).selectedOptions].map(x => x.value);
 }
+function parseContractStartMinutes(contractLabel) {
+  if (!contractLabel || !contractLabel.includes("-")) return null;
+  const start = contractLabel.split("-")[0];
+  const [hh, mm] = start.split(":").map(Number);
+  if (!Number.isFinite(hh) || !Number.isFinite(mm)) return null;
+  return hh * 60 + mm;
+}
+
+function applyContractPreset(presetName) {
+  const options = [...document.getElementById("contracts").options];
+
+  options.forEach(opt => {
+    const mins = parseContractStartMinutes(opt.value);
+    if (mins === null) {
+      opt.selected = false;
+      return;
+    }
+
+    let selected = false;
+
+    // time windows use start time of contract
+    if (presetName === "base") {
+      selected = true; // all day
+    } else if (presetName === "peak") {
+      selected = mins >= 8 * 60 && mins < 20 * 60;        // 08:00-19:45
+    } else if (presetName === "offpeak") {
+      selected = mins < 8 * 60 || mins >= 20 * 60;        // before 08:00 or after 20:00
+    } else if (presetName === "morning") {
+      selected = mins >= 6 * 60 && mins < 12 * 60;        // 06:00-11:45
+    } else if (presetName === "evening") {
+      selected = mins >= 17 * 60 && mins < 23 * 60;       // 17:00-22:45
+    }
+
+    opt.selected = selected;
+  });
+
+  render();
+}
+
 
 function populateSelectors() {
   const areas = unique(data.map(x => x.area)).filter(Boolean).sort();
