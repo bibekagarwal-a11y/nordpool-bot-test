@@ -254,7 +254,118 @@ function renderMetricCards(filtered) {
   }
 }
 
-function renderBessStrategy(filtered) {
+function renderBessStrategy(filtered)
+function computeQuarterHours(contractLabel) {
+  if (!contractLabel || !contractLabel.includes("-")) return 0.25;
+
+  const [startStr, endStr] = contractLabel.split("-");
+  const [sh, sm] = startStr.split(":").map(Number);
+  const [eh, em] = endStr.split(":").map(Number);
+
+  if (![sh, sm, eh, em].every(Number.isFinite)) return 0.25;
+
+  let startMins = sh * 60 + sm;
+  let endMins = eh * 60 + em;
+  if (endMins < startMins) endMins += 24 * 60;
+
+  return (endMins - startMins) / 60;
+}
+
+function renderMultiCycleBess(filtered) {
+  const el = document.getElementById("bessMultiCycle");
+  if (!el) return;
+
+  if (!filtered.length) {
+    el.innerHTML = "-";
+    return;
+  }
+
+  const capacityMWh = Number(document.getElementById("bessCapacity").value || 1);
+  const powerMW = Number(document.getElementById("bessPower").value || 1);
+  const efficiency = Number(document.getElementById("bessEfficiency").value || 0.9);
+
+  if (!Number.isFinite(capacityMWh) || !Number.isFinite(powerMW) || !Number.isFinite(efficiency) ||
+      capacityMWh <= 0 || powerMW <= 0 || efficiency <= 0 || efficiency > 1) {
+    el.innerHTML = "Invalid BESS settings.";
+    return;
+  }
+
+  const ordered = [...filtered].sort(compareRowsChronologically);
+
+  let soc = 0; // MWh
+  let totalPnL = 0;
+  let chargeActions = 0;
+  let dischargeActions = 0;
+  let throughputMWh = 0;
+
+  const avgFutureSell = ordered.map((_, i) => {
+    const future = ordered.slice(i + 1).map(r => Number(r.sell_price)).filter(Number.isFinite);
+    if (!future.length) return null;
+    return future.reduce((a, b) => a + b, 0) / future.length;
+  });
+
+  ordered.forEach((row, i) => {
+    const durationH = computeQuarterHours(row.contract);
+    const maxEnergyThisStep = Math.min(powerMW * durationH, capacityMWh);
+
+    const buyPrice = Number(row.buy_price);
+    const sellPrice = Number(row.sell_price);
+
+    const futureAvgSell = avgFutureSell[i];
+
+    // simple heuristic:
+    // charge if current buy price is sufficiently below future avg sell
+    // discharge if current sell price is above future avg sell or near end while SOC exists
+
+    const chargeThreshold = futureAvgSell !== null ? futureAvgSell * efficiency : null;
+    const shouldCharge =
+      futureAvgSell !== null &&
+      soc < capacityMWh &&
+      buyPrice < chargeThreshold;
+
+    const shouldDischarge =
+      soc > 0 &&
+      (
+        futureAvgSell === null ||
+        sellPrice >= futureAvgSell ||
+        i >= ordered.length - 4
+      );
+
+    if (shouldCharge) {
+      const availableRoom = capacityMWh - soc;
+      const chargeMWh = Math.min(maxEnergyThisStep, availableRoom);
+      if (chargeMWh > 0) {
+        soc += chargeMWh;
+        totalPnL -= chargeMWh * buyPrice;
+        throughputMWh += chargeMWh;
+        chargeActions += 1;
+      }
+    } else if (shouldDischarge) {
+      const dischargeRawMWh = Math.min(maxEnergyThisStep, soc);
+      if (dischargeRawMWh > 0) {
+        const deliveredMWh = dischargeRawMWh * efficiency;
+        soc -= dischargeRawMWh;
+        totalPnL += deliveredMWh * sellPrice;
+        throughputMWh += dischargeRawMWh;
+        dischargeActions += 1;
+      }
+    }
+  });
+
+  el.innerHTML = `
+    <strong>Estimated multi-cycle P&amp;L:</strong>
+    <span class="${totalPnL >= 0 ? 'positive-text' : 'negative-text'}">${totalPnL.toFixed(2)} €</span>
+    <br>
+    <strong>Charge actions:</strong> ${chargeActions}
+    <br>
+    <strong>Discharge actions:</strong> ${dischargeActions}
+    <br>
+    <strong>Total throughput:</strong> ${throughputMWh.toFixed(2)} MWh
+    <br>
+    <strong>Ending state of charge:</strong> ${soc.toFixed(2)} MWh
+  `;
+}
+{
   const bessEl = document.getElementById("bessStrategy");
   if (!bessEl) return;
 
