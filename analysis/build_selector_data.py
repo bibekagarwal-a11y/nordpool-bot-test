@@ -1,5 +1,6 @@
 import pandas as pd
 from pathlib import Path
+from itertools import combinations
 
 DATA_DIR = Path("data")
 OUT_DIR = Path("docs/data")
@@ -78,8 +79,7 @@ def normalize(df, market_name):
     ]
 
 
-def expand_hourly_to_quarters(df):
-    """Expand hourly products into quarter-hour rows if needed."""
+def expand_to_quarters(df):
     if df is None or df.empty:
         return df
 
@@ -95,12 +95,10 @@ def expand_hourly_to_quarters(df):
 
         duration_mins = (end - start).total_seconds() / 60
 
-        # if already quarter-hourly, keep as-is
         if duration_mins <= 15:
             rows.append(row.to_dict())
             continue
 
-        # split longer contracts into 15-minute blocks
         current = start
         while current < end:
             next_q = min(current + pd.Timedelta(minutes=15), end)
@@ -116,56 +114,54 @@ def expand_hourly_to_quarters(df):
     return pd.DataFrame(rows)
 
 
-dayahead = normalize(load_csv("dayahead_prices.csv"), "DayAhead")
-ida1 = normalize(load_csv("ida1_prices.csv"), "IDA1")
-ida2 = normalize(load_csv("ida2_prices.csv"), "IDA2")
-ida3 = normalize(load_csv("ida3_prices.csv"), "IDA3")
-vwap = normalize(load_csv("intraday_continuous_vwap_qh.csv"), "IntradayVWAP")
+# Load datasets
+market_frames = {
+    "DA": normalize(load_csv("dayahead_prices.csv"), "DA"),
+    "IDA1": normalize(load_csv("ida1_prices.csv"), "IDA1"),
+    "IDA2": normalize(load_csv("ida2_prices.csv"), "IDA2"),
+    "IDA3": normalize(load_csv("ida3_prices.csv"), "IDA3"),
+    "VWAP": normalize(load_csv("intraday_continuous_vwap_qh.csv"), "VWAP"),
+}
 
-# expand day-ahead hourly contracts to quarter-hours
-dayahead = expand_hourly_to_quarters(dayahead)
+# Expand longer contracts (especially DA hourly) into quarter-hours
+for key in list(market_frames.keys()):
+    market_frames[key] = expand_to_quarters(market_frames[key])
 
-datasets = [x for x in [dayahead, ida1, ida2, ida3, vwap] if x is not None and not x.empty]
-
-if not datasets:
+available_markets = [k for k, v in market_frames.items() if v is not None and not v.empty]
+if not available_markets:
     raise ValueError("No datasets loaded from data/")
 
-base = pd.concat(datasets, ignore_index=True)
+base = pd.concat([market_frames[k] for k in available_markets], ignore_index=True)
 
-rules = [
-    ("DA_IDA1", "DayAhead", "IDA1"),
-    ("DA_IDA2", "DayAhead", "IDA2"),
-    ("DA_IDA3", "DayAhead", "IDA3"),
-    ("DA_VWAP", "DayAhead", "IntradayVWAP"),
-]
+# Build every unordered pair once; UI direction selector will handle forward/reverse
+pairs = list(combinations(available_markets, 2))
 
 profit_rows = []
 
-for rule_name, buy_market, sell_market in rules:
-    buy = base[base["market"] == buy_market].copy()
-    sell = base[base["market"] == sell_market].copy()
+for left_market, right_market in pairs:
+    left_df = base[base["market"] == left_market].copy().rename(columns={"price_value": "left_price"})
+    right_df = base[base["market"] == right_market].copy().rename(columns={"price_value": "right_price"})
 
-    buy = buy.rename(columns={"price_value": "buy_price"})
-    sell = sell.rename(columns={"price_value": "sell_price"})
-
-    merged = buy.merge(
-        sell,
+    merged = left_df.merge(
+        right_df,
         on=["date", "area", "contract"],
         how="inner",
-        suffixes=("_buy", "_sell"),
+        suffixes=("_left", "_right"),
     )
 
     if merged.empty:
-        print(f"No matches for rule: {rule_name}")
+        print(f"No matches for pair: {left_market}_{right_market}")
         continue
 
-    merged["rule"] = rule_name
+    merged["rule"] = f"{left_market}_{right_market}"
+    merged["buy_price"] = merged["left_price"]
+    merged["sell_price"] = merged["right_price"]
     merged["profit"] = merged["sell_price"] - merged["buy_price"]
 
-    if "contract_sort_buy" in merged.columns:
-        merged["contract_sort"] = merged["contract_sort_buy"]
-    elif "contract_sort_sell" in merged.columns:
-        merged["contract_sort"] = merged["contract_sort_sell"]
+    if "contract_sort_left" in merged.columns:
+        merged["contract_sort"] = merged["contract_sort_left"]
+    elif "contract_sort_right" in merged.columns:
+        merged["contract_sort"] = merged["contract_sort_right"]
     else:
         merged["contract_sort"] = 0
 
@@ -186,7 +182,7 @@ for rule_name, buy_market, sell_market in rules:
 
 if not profit_rows:
     raise ValueError(
-        "No arbitrage rows were created. This means the datasets still do not align on date/area/contract."
+        "No matched rows were created. Check date/area/contract alignment across files."
     )
 
 result = pd.concat(profit_rows, ignore_index=True).sort_values(
@@ -202,3 +198,4 @@ json_path.write_text(result.to_json(orient="records"))
 print(f"Wrote CSV: {csv_path}")
 print(f"Wrote JSON: {json_path}")
 print(f"Rows written: {len(result)}")
+print(f"Rules generated: {sorted(result['rule'].unique().tolist())}")
