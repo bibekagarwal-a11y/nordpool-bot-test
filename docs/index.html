@@ -162,13 +162,18 @@
         </section>
       </section>
 
-      <section class="panel">
-        <div class="panel-header">
-          <h2>Contract Breakdown</h2>
-          <p>Detailed row-level buy price, sell price, and profit.</p>
-        </div>
-        <div id="table" class="table-wrap"></div>
-      </section>
+<section class="panel">
+  <details id="detailsPanel">
+    <summary class="details-summary">
+      <span>Contract Breakdown</span>
+      <span class="details-sub">Click to expand detailed pricing table</span>
+    </summary>
+    <div class="details-body">
+      <div id="table" class="table-wrap"></div>
+    </div>
+  </details>
+</section>
+      
     </main>
   </div>
 
