@@ -34,7 +34,8 @@ def _duration_hours(contract_label: str) -> float:
     if end < start:
         end += 24 * 60
     return (end - start) / 60
-
+print("Columns available:", out.columns)
+out = out.sort_values(["contract_sort", "rule"]).reset_index(drop=True)
 
 def _prepare_day_frame(day_df: pd.DataFrame) -> pd.DataFrame:
     out = day_df.copy()
