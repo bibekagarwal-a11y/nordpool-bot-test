@@ -28,6 +28,7 @@ jobs:
 
       - name: Run analysis
         run: |
+          mkdir -p docs/data
           python analysis/build_analysis.py
           python analysis/build_selector_data.py
           python analysis/build_bess_dashboard_data.py
@@ -37,6 +38,6 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           mkdir -p charts reports docs/data
-          git add charts reports docs
+          git add charts reports docs/data
           git diff --cached --quiet || git commit -m "Update analysis outputs"
           git push
