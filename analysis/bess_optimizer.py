@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Dict, List, Optional
+from typing import Dict
 import pandas as pd
 
 
@@ -26,24 +26,39 @@ class StageResult:
 def _duration_hours(contract_label: str) -> float:
     if not contract_label or "-" not in contract_label:
         return 0.25
+
     start_str, end_str = contract_label.split("-")
     sh, sm = map(int, start_str.split(":"))
     eh, em = map(int, end_str.split(":"))
+
     start = sh * 60 + sm
     end = eh * 60 + em
+
     if end < start:
         end += 24 * 60
+
     return (end - start) / 60
-print("Columns available:", out.columns)
-sort_cols = [c for c in ["contract_sort", "rule"] if c in out.columns]
-out = out.sort_values(sort_cols).reset_index(drop=True)
 
-def _prepare_day_frame(out):
 
+def _prepare_day_frame(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Prepare dataframe safely before optimization.
+    Ensures required columns exist and sorts correctly.
+    """
+
+    out = df.copy()
+
+    # Ensure rule column exists
     if "rule" not in out.columns:
         out["rule"] = "unknown"
 
-    out = out.sort_values(["contract_sort", "rule"]).reset_index(drop=True)
+    # Ensure contract_sort exists
+    if "contract_sort" not in out.columns:
+        out["contract_sort"] = range(len(out))
+
+    # Safe sorting
+    sort_cols = [c for c in ["contract_sort", "rule"] if c in out.columns]
+    out = out.sort_values(sort_cols).reset_index(drop=True)
 
     return out
 
@@ -62,6 +77,7 @@ def _simple_single_market_schedule(
     - enforce SOC, power, capacity
     - no simultaneous charge/discharge
     """
+
     df = pd.DataFrame({
         "contract": contracts.values,
         "contract_sort": contract_sort.values,
@@ -84,6 +100,7 @@ def _simple_single_market_schedule(
     trades = []
 
     for i, row in df.iterrows():
+
         duration_h = row["duration_h"]
         max_charge_mwh = config.max_charge_mw * duration_h
         max_discharge_mwh = config.max_discharge_mw * duration_h
@@ -93,10 +110,14 @@ def _simple_single_market_schedule(
         discharge = 0.0
 
         if price <= low_threshold:
+
             room = max(config.capacity_mwh - soc, 0.0)
             charge = min(max_charge_mwh * eta_charge, room)
+
             soc += charge
+
             cashflow = -(charge / eta_charge) * price if eta_charge > 0 else -charge * price
+
             trades.append({
                 "stage": stage_name,
                 "contract": row["contract"],
@@ -105,15 +126,20 @@ def _simple_single_market_schedule(
                 "price_eur_mwh": price,
                 "cashflow_eur": cashflow,
             })
+
             df.at[i, "charge_mwh"] = charge
             df.at[i, "cashflow_eur"] += cashflow
 
         elif price >= high_threshold:
+
             available = max(soc, 0.0)
             raw_discharge = min(max_discharge_mwh / max(eta_discharge, 1e-9), available)
+
             discharge = raw_discharge * eta_discharge
             soc -= raw_discharge
+
             cashflow = discharge * price
+
             trades.append({
                 "stage": stage_name,
                 "contract": row["contract"],
@@ -122,23 +148,29 @@ def _simple_single_market_schedule(
                 "price_eur_mwh": price,
                 "cashflow_eur": cashflow,
             })
+
             df.at[i, "discharge_mwh"] = discharge
             df.at[i, "cashflow_eur"] += cashflow
 
         df.at[i, "soc_mwh"] = soc
 
-    # crude end-of-day SOC correction
+    # End-of-day SOC correction
     if soc > config.final_soc_target_mwh and len(df) > 0:
+
         last_idx = df.index[-1]
         excess = soc - config.final_soc_target_mwh
         price = df.at[last_idx, "price"]
+
         eta_discharge = config.roundtrip_efficiency ** 0.5
         delivered = excess * eta_discharge
         cashflow = delivered * price
+
         df.at[last_idx, "discharge_mwh"] += delivered
         df.at[last_idx, "cashflow_eur"] += cashflow
+
         soc = config.final_soc_target_mwh
         df.at[last_idx, "soc_mwh"] = soc
+
         trades.append({
             "stage": stage_name,
             "contract": df.at[last_idx, "contract"],
@@ -162,6 +194,7 @@ def optimize_day_sequential(
     area_day_df: pd.DataFrame,
     config: BatteryConfig,
 ) -> Dict[str, StageResult]:
+
     """
     Sequential battery strategy:
     1. DA baseline
@@ -170,6 +203,7 @@ def optimize_day_sequential(
     4. IDA3 uplift
     5. Continuous uplift (VWAP)
     """
+
     area_day_df = _prepare_day_frame(area_day_df)
 
     stage_market_map = {
@@ -183,7 +217,9 @@ def optimize_day_sequential(
     results: Dict[str, StageResult] = {}
 
     for stage_name, market_code in stage_market_map.items():
+
         market_rows = area_day_df[area_day_df["market_code"] == market_code].copy()
+
         if market_rows.empty:
             continue
 
@@ -194,6 +230,7 @@ def optimize_day_sequential(
             config=config,
             stage_name=stage_name,
         )
+
         results[stage_name] = result
 
     return results
