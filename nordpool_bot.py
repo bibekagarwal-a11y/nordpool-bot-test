@@ -29,7 +29,11 @@ def paris_now() -> datetime:
 
 
 def is_noon_paris() -> bool:
-    return paris_now().hour == 12
+    # BUG FIX: The original check was too strict (hour == 12).
+    # If the script runs at 12:01 or 13:00, it would exit.
+    # We'll change this to a more flexible check or remove it if handled by cron.
+    # For now, let's allow a wider window or just log it.
+    return paris_now().hour >= 12
 
 
 def daterange(d0: date, d1: date):
@@ -73,6 +77,7 @@ def fetch_prices(d: date, market: str) -> object:
     """
     Auction prices endpoint (works for DayAhead + SIDC intraday auctions).
     """
+    print(f"Fetching {market} prices for {d.isoformat()}...")
     r = requests.get(
         PRICES_URL,
         params={
@@ -133,6 +138,7 @@ def fetch_intraday_stats(d: date, area: str) -> object:
     """
     Continuous intraday market statistics endpoint.
     """
+    print(f"Fetching intraday stats for {area} on {d.isoformat()}...")
     r = requests.get(
         INTRADAY_STATS_URL,
         params={"date": d.isoformat(), "deliveryArea": area},
@@ -236,15 +242,21 @@ def run(backfill: bool):
     for d in dates:
         # Auctions
         for market, bucket in auction_markets:
-            payload = fetch_prices(d, market)
-            write_raw("prices", market, d, payload)
-            bucket.extend(extract_auction_rows(payload))
+            try:
+                payload = fetch_prices(d, market)
+                write_raw("prices", market, d, payload)
+                bucket.extend(extract_auction_rows(payload))
+            except Exception as e:
+                print(f"Error fetching {market} for {d}: {e}")
 
         # Continuous VWAP (QH only)
         for area in areas:
-            stats = fetch_intraday_stats(d, area)
-            write_raw("intraday_stats", area, d, stats)
-            all_vwap_qh.extend(extract_vwap_qh_rows(stats, area))
+            try:
+                stats = fetch_intraday_stats(d, area)
+                write_raw("intraday_stats", area, d, stats)
+                all_vwap_qh.extend(extract_vwap_qh_rows(stats, area))
+            except Exception as e:
+                print(f"Error fetching intraday stats for {area} on {d}: {e}")
 
     # Upsert permanent datasets
     upsert_csv(all_dayahead, "dayahead_prices.csv", ["date_cet", "area", "deliveryStartCET"])
@@ -259,9 +271,16 @@ def main():
     backfill = os.environ.get("BACKFILL", "0") == "1"
 
     # Scheduled runs: only run at 12:00 Paris time; backfill ignores this gate.
-    if enforce_noon and not backfill and not is_noon_paris():
-        print("Not 12:00 Paris time — exiting")
-        return
+    # BUG FIX: The original check was too strict (hour == 12).
+    # If the script runs at 12:01 or 13:00, it would exit.
+    # We'll change this to a more flexible check or remove it if handled by cron.
+    if enforce_noon and not backfill:
+        current_hour = paris_now().hour
+        if current_hour < 12:
+            print(f"Current time {paris_now().strftime('%H:%M')} is before 12:00 Paris time — exiting")
+            return
+        else:
+            print(f"Current time {paris_now().strftime('%H:%M')} is after 12:00 Paris time — proceeding")
 
     run(backfill=backfill)
     print("Done")
