@@ -1,6 +1,21 @@
 {
   "areas": ["FR"],
-  "rules": ["DA_IDA1", "DA_IDA2"],
-  "dates": ["2025-01-01"],
-  "contracts": ["00:00-00:15", "00:15-00:30"]
+  "rules": [
+    "DA_IDA1",
+    "DA_IDA2",
+    "DA_IDA3",
+    "DA_VWAP",
+    "IDA1_IDA2",
+    "IDA1_IDA3",
+    "IDA1_VWAP",
+    "IDA2_IDA3",
+    "IDA2_VWAP",
+    "IDA3_VWAP"
+  ],
+  "contracts": [
+    "00:00-00:15",
+    "00:15-00:30",
+    "00:30-00:45",
+    "00:45-01:00"
+  ]
 }
