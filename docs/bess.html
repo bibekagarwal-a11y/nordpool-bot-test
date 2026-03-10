@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>BESS Optimizer</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="page-shell">
+    <header class="hero">
+      <div>
+        <p class="eyebrow">Nord Pool Storage Analytics</p>
+        <h1>BESS Optimizer</h1>
+        <p class="hero-sub">
+          Compare DA, IDA1, IDA2, IDA3 and VWAP value capture for battery trading.
+        </p>
+      </div>
+    </header>
+
+    <main class="dashboard">
+      <section class="panel">
+        <div class="filters-top">
+          <div class="filter">
+            <label for="bessArea">Area</label>
+            <select id="bessArea"></select>
+          </div>
+          <div class="filter">
+            <label for="bessDate">Date</label>
+            <select id="bessDate"></select>
+          </div>
+        </div>
+      </section>
+
+      <section class="summary-grid">
+        <div class="metric-card accent-green">
+          <div class="metric-label">Total BESS PnL</div>
+          <div id="bessTotalPnl" class="metric-value">-</div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-header">
+          <h2>Stage PnL Waterfall</h2>
+        </div>
+        <div id="bessWaterfall" class="chart"></div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-header">
+          <h2>Schedule / SOC</h2>
+        </div>
+        <div id="bessSocChart" class="chart"></div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-header">
+          <h2>Trade Log</h2>
+        </div>
+        <div id="bessTradeTable" class="table-wrap"></div>
+      </section>
+    </main>
+  </div>
+
+  <script src="bess.js"></script>
+</body>
+</html>
