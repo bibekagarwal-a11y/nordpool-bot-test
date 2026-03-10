@@ -1,13 +1,16 @@
 # Daily Electricity Market Analysis - FR
 
 ## Highest average price
-IntradayVWAP — 70.10 €/MWh
+IntradayVWAP — 76.13 €/MWh
 
 ## Largest spread
-IDA1 — 313.87 €/MWh
+IDA1 — 321.08 €/MWh
 
 ## Biggest yesterday-vs-today move
-IDA3 — -28.45 €/MWh (-29.18%)
+IDA3 — 52.24 €/MWh (68.08%)
 
 ## 7-day anomalies
-No strong anomalies detected (> 2 rolling std).
+DayAhead on 2026-03-09 flagged as anomaly.
+IDA1 on 2026-03-09 flagged as anomaly.
+IDA2 on 2026-03-09 flagged as anomaly.
+IDA3 on 2026-03-09 flagged as anomaly.
