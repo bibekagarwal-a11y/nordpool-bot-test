@@ -1,6 +1,5 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
 <meta charset="utf-8" />
 <title>Electricity Arbitrage Explorer</title>
@@ -13,8 +12,7 @@
 
 <body>
 
-<div class="page-shell">
-
+<!-- <div class="page-shell"> -->
 <header class="hero">
 
 <div>
@@ -68,83 +66,48 @@ Open BESS Optimizer →
 
 <div class="filter">
 <label for="direction">Direction</label>
-
 <select id="direction">
-<option value="forward">Buy first → Sell second</option>
+<option value="normal">Buy first → Sell second</option>
 <option value="reverse">Buy second → Sell first</option>
 </select>
-
 </div>
 
 <div class="filter">
-<label for="startDate">Start date</label>
-<input type="date" id="startDate">
+<label>Start date</label>
+<input id="startDate" type="date" />
 </div>
 
 <div class="filter">
-<label for="endDate">End date</label>
-<input type="date" id="endDate">
+<label>End date</label>
+<input id="endDate" type="date" />
 </div>
 
 </div>
 
-
-<div class="bess-box">
-
-<div class="bess-title">
-Best BESS Single-Cycle Opportunity
-</div>
-
-<div id="bessStrategy" class="bess-content">
--
+<div class="bess-summary-card">
+<div class="bess-summary-label">Best BESS Single-Cycle Opportunity</div>
+<div id="bestBessResult" class="bess-summary-value">-</div>
 </div>
 
 </div>
 
-</div>
-
-
-<div class="contracts-panel compact-contracts-panel">
+<div class="contracts-panel">
 
 <div class="contracts-header">
 <h3>Quarter-hour contracts</h3>
+<div class="contract-presets">
+<button id="selectAllBtn">Select all</button>
+<button id="clearAllBtn">Clear</button>
+<span class="preset-divider"></span>
+<button id="presetBaseBtn">Base</button>
+<button id="presetPeakBtn">Peak</button>
+<button id="presetOffPeakBtn">Off-peak</button>
+<button id="presetMorningBtn">Morning</button>
+<button id="presetEveningBtn">Evening</button>
+</div>
 </div>
 
-
-<div class="contract-buttons">
-
-<button id="selectAllBtn" class="btn secondary">
-Select all
-</button>
-
-<button id="clearAllBtn" class="btn ghost">
-Clear
-</button>
-
-<button id="presetBaseBtn" class="btn ghost preset-btn">
-Base
-</button>
-
-<button id="presetPeakBtn" class="btn ghost preset-btn">
-Peak
-</button>
-
-<button id="presetOffPeakBtn" class="btn ghost preset-btn">
-Off-peak
-</button>
-
-<button id="presetMorningBtn" class="btn ghost preset-btn">
-Morning
-</button>
-
-<button id="presetEveningBtn" class="btn ghost preset-btn">
-Evening
-</button>
-
-</div>
-
-
-<select id="contracts" multiple size="12"></select>
+<select id="contracts" multiple></select>
 
 </div>
 
@@ -153,149 +116,131 @@ Evening
 </section>
 
 
+<section class="summary-grid">
 
-<section class="summary-grid summary-grid-6">
-
-<div class="metric-card accent-green">
+<div class="metric-card">
 <div class="metric-label">Total Profit</div>
-<div id="profit" class="metric-value">-</div>
-<div class="metric-note">Across selected rows</div>
+<div id="totalProfit" class="metric-value">-</div>
+<div class="metric-sub">Across selected rows</div>
 </div>
 
-<div class="metric-card accent-blue">
+<div class="metric-card">
 <div class="metric-label">Contracts</div>
-<div id="contractCount" class="metric-value">-</div>
-<div class="metric-note">Rows selected</div>
+<div id="rowCount" class="metric-value">-</div>
+<div class="metric-sub">Rows selected</div>
 </div>
 
-<div class="metric-card accent-purple">
+<div class="metric-card">
 <div class="metric-label">Average Profit</div>
 <div id="avgProfit" class="metric-value">-</div>
-<div class="metric-note">Per row</div>
+<div class="metric-sub">Per row</div>
 </div>
 
-<div class="metric-card accent-green">
+<div class="metric-card">
 <div class="metric-label">Win Rate</div>
 <div id="winRate" class="metric-value">-</div>
-<div class="metric-note">% profitable rows</div>
+<div class="metric-sub">% profitable rows</div>
 </div>
 
-<div class="metric-card accent-blue">
+<div class="metric-card">
 <div class="metric-label">Best Contract</div>
-<div id="bestContract" class="metric-value metric-value-small">-</div>
+<div id="bestRow" class="metric-value">-</div>
 </div>
 
-<div class="metric-card accent-purple">
+<div class="metric-card">
 <div class="metric-label">Worst Contract</div>
-<div id="worstContract" class="metric-value metric-value-small">-</div>
+<div id="worstRow" class="metric-value">-</div>
 </div>
 
 </section>
-
 
 
 <section class="panel">
-
 <div class="panel-header">
 <h2>Cumulative P&L</h2>
 <p>Running arbitrage profit.</p>
 </div>
-
-<div id="cumulativeCurve" class="chart"></div>
-
+<div id="cumulativeChart" class="chart"></div>
 </section>
 
 
+<div class="chart-row">
 
 <section class="panel">
-
 <div class="panel-header">
 <h2>Profit by Contract</h2>
 </div>
-
-<div id="contractBar" class="chart"></div>
-
+<div id="contractBarChart" class="chart"></div>
 </section>
 
-
-
 <section class="panel">
-
 <div class="panel-header">
 <h2>Quarter-hour Heatmap</h2>
 </div>
-
-<div id="heatmap" class="chart"></div>
-
+<div id="heatmapChart" class="chart"></div>
 </section>
 
+</div>
 
+
+<div class="chart-row">
 
 <section class="panel">
-
 <div class="panel-header">
 <h2>Profit Distribution</h2>
 </div>
-
-<div id="histogram" class="chart"></div>
-
+<div id="histogramChart" class="chart"></div>
 </section>
 
+<section class="panel">
+<div class="panel-header">
+<h2>BESS Multi-Cycle Daily</h2>
+</div>
+<div id="bessMultiChart" class="chart"></div>
+</section>
+
+</div>
 
 
-<section class="two-col">
+<div class="table-row">
 
 <section class="panel">
-
 <div class="panel-header">
 <h2>Top 10 Contracts</h2>
 </div>
-
-<div id="topContracts" class="table-wrap"></div>
-
+<div id="topTable" class="table-wrap"></div>
 </section>
 
-
 <section class="panel">
-
 <div class="panel-header">
 <h2>Bottom 10 Contracts</h2>
 </div>
-
-<div id="bottomContracts" class="table-wrap"></div>
-
+<div id="bottomTable" class="table-wrap"></div>
 </section>
 
-</section>
-
+</div>
 
 
 <section class="panel">
-
-<details id="detailsPanel">
-
-<summary class="details-summary">
-<span>Contract Breakdown</span>
-<span class="details-sub">Click to expand detailed pricing table</span>
-</summary>
-
-<div class="details-body">
-
-<div id="table" class="table-wrap"></div>
-
+<details>
+<summary>
+<div class="panel-header" style="display:inline-block; margin:0;">
+<h2 style="margin:0;">Contract Breakdown</h2>
+<p style="margin:0;">Click to expand detailed pricing table</p>
 </div>
-
+</summary>
+<div id="table" class="table-wrap" style="margin-top:20px;"></div>
 </details>
-
 </section>
-
 
 </main>
 
+<div style="padding:40px; text-align:center; opacity:0.5; font-size:12px;">
+&copy; 2026 Nord Pool Analytics Dashboard
 </div>
 
+</div>
 
 <script src="app.js"></script>
-
 </body>
 </html>
