@@ -30,6 +30,7 @@ jobs:
         run: |
           python analysis/build_analysis.py
           python analysis/build_selector_data.py
+          python analysis/build_bess_dashboard_data.py
 
       - name: Commit generated outputs
         run: |
