@@ -38,10 +38,13 @@ print("Columns available:", out.columns)
 sort_cols = [c for c in ["contract_sort", "rule"] if c in out.columns]
 out = out.sort_values(sort_cols).reset_index(drop=True)
 
-def _prepare_day_frame(day_df: pd.DataFrame) -> pd.DataFrame:
-    out = day_df.copy()
+def _prepare_day_frame(out):
+
+    if "rule" not in out.columns:
+        out["rule"] = "unknown"
+
     out = out.sort_values(["contract_sort", "rule"]).reset_index(drop=True)
-    out["duration_h"] = out["contract"].apply(_duration_hours)
+
     return out
 
 
