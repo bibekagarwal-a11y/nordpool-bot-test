@@ -1,0 +1,30 @@
+{
+  "areas": ["FR"],
+  "rules": ["DA_IDA1","DA_IDA2"],
+  "dates": ["2025-01-01"],
+  "contracts": ["00:00-00:15","00:15-00:30"]
+}
+import json
+from pathlib import Path
+
+# ----------------------------
+# Build selector_options.json
+# ----------------------------
+
+selector_options = {
+    "areas": sorted(result["area"].dropna().unique().tolist()),
+    "rules": sorted(result["rule"].dropna().unique().tolist()),
+    "dates": sorted(result["date"].dropna().unique().tolist()),
+    "contracts": sorted(result["contract"].dropna().unique().tolist()),
+}
+
+# Write to repo root (for workflow validation)
+with open("selector_options.json", "w") as f:
+    json.dump(selector_options, f, indent=2)
+
+print("Wrote selector_options.json")
+
+# Also write contract_profits.json to root for validator
+result.to_json("contract_profits.json", orient="records")
+
+print("Wrote contract_profits.json to repo root")
