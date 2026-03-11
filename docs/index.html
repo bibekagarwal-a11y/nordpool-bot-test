@@ -1,218 +1,71 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-  <meta charset="utf-8" />
-  <title>Electricity Arbitrage Explorer</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
-  <link rel="stylesheet" href="styles.css" />
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nordpool Market Dashboard</title>
+
+<script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+
+<link rel="stylesheet" href="styles.css">
+
+<style>
+body{
+  font-family: Arial, sans-serif;
+  background:#0f172a;
+  color:white;
+  margin:0;
+}
+
+.container{
+  max-width:1200px;
+  margin:auto;
+  padding:20px;
+}
+
+select{
+  padding:8px;
+  margin-right:10px;
+}
+
+.chart{
+  margin-top:30px;
+}
+</style>
+
 </head>
+
 <body>
-  <div class="page-shell">
-    <header class="hero">
-      <div>
-        <p class="eyebrow">Nord Pool Analytics</p>
-        <h1>Electricity Arbitrage Explorer</h1>
-        <p class="hero-sub">
-          Analyze Day-Ahead vs Intraday arbitrage by area, strategy, date range, and quarter-hour contracts.
-        </p>
-      </div>
-      <div class="hero-badge">
-        <span>Live from GitHub Pages</span>
-      </div>
-    </header>
 
-    <main class="dashboard">
-      <section class="panel controls-panel">
-        <div class="panel-header">
-          <h2>Scenario Setup</h2>
-          <p>Configure the arbitrage strategy and contract window you want to test.</p>
-        </div>
+<div class="container">
 
-        <div class="controls-layout">
-          <div class="scenario-panel">
-            <div class="filters-top">
-              <div class="filter">
-                <label for="area">Area</label>
-                <select id="area"></select>
-              </div>
+<h1>⚡ Nordpool Market Analysis</h1>
 
-              <div class="filter">
-                <label for="rule">Strategy</label>
-                <select id="rule"></select>
-              </div>
+<div>
 
-              <div class="filter">
-                <label for="direction">Direction</label>
-                <select id="direction">
-                  <option value="forward">Buy first → Sell second</option>
-                  <option value="reverse">Buy second → Sell first</option>
-                </select>
-              </div>
+<label>Area</label>
+<select id="area">
+<option value="">All</option>
+</select>
 
-              <div class="filter">
-                <label for="startDate">Start date</label>
-                <input type="date" id="startDate" />
-              </div>
+<label>Strategy</label>
+<select id="strategy">
+<option value="">All</option>
+</select>
 
-              <div class="filter">
-                <label for="endDate">End date</label>
-                <input type="date" id="endDate" />
-              </div>
-            </div>
+<label>Contract</label>
+<select id="contract">
+<option value="">All</option>
+</select>
 
-            <div class="bess-box">
-              <div class="bess-title">Best BESS Strategy</div>
-              <div id="bessStrategy" class="bess-content">-</div>
-            </div>
+</div>
 
-            <div class="bess-config-box">
-              <div class="bess-title">BESS Settings</div>
+<div id="cumulativePLChart" class="chart"></div>
 
-              <div class="bess-config-grid">
-                <div class="filter">
-                  <label for="bessCapacity">Capacity (MWh)</label>
-                  <input type="number" id="bessCapacity" value="1" min="0.1" step="0.1" />
-                </div>
+</div>
 
-                <div class="filter">
-                  <label for="bessPower">Power (MW)</label>
-                  <input type="number" id="bessPower" value="1" min="0.1" step="0.1" />
-                </div>
+<script src="./app.js"></script>
 
-                <div class="filter">
-                  <label for="bessEfficiency">Round-trip efficiency</label>
-                  <input type="number" id="bessEfficiency" value="0.9" min="0.5" max="1" step="0.01" />
-                </div>
-              </div>
-
-              <div class="bess-title" style="margin-top:12px;">Multi-cycle BESS Estimate</div>
-              <div id="bessMultiCycle" class="bess-content">-</div>
-            </div>
-          </div>
-
-          <div class="contracts-panel compact-contracts-panel">
-            <div class="contracts-header">
-              <h3>Quarter-hour contracts</h3>
-            </div>
-
-            <div class="contract-buttons">
-              <button type="button" id="selectAllBtn" class="btn secondary">Select all</button>
-              <button type="button" id="clearAllBtn" class="btn ghost">Clear</button>
-              <button type="button" id="presetBaseBtn" class="btn ghost preset-btn">Base</button>
-              <button type="button" id="presetPeakBtn" class="btn ghost preset-btn">Peak</button>
-              <button type="button" id="presetOffPeakBtn" class="btn ghost preset-btn">Off-peak</button>
-              <button type="button" id="presetMorningBtn" class="btn ghost preset-btn">Morning</button>
-              <button type="button" id="presetEveningBtn" class="btn ghost preset-btn">Evening</button>
-            </div>
-
-            <select id="contracts" multiple size="12"></select>
-          </div>
-        </div>
-      </section>
-
-      <section class="summary-grid summary-grid-6">
-        <div class="metric-card accent-green">
-          <div class="metric-label">Total Profit</div>
-          <div id="profit" class="metric-value">-</div>
-          <div class="metric-note">Across selected rows</div>
-        </div>
-
-        <div class="metric-card accent-blue">
-          <div class="metric-label">Selected Contracts</div>
-          <div id="contractCount" class="metric-value">-</div>
-          <div class="metric-note">Date × quarter-hour rows</div>
-        </div>
-
-        <div class="metric-card accent-purple">
-          <div class="metric-label">Average Profit</div>
-          <div id="avgProfit" class="metric-value">-</div>
-          <div class="metric-note">Per selected row</div>
-        </div>
-
-        <div class="metric-card accent-green">
-          <div class="metric-label">Win Rate</div>
-          <div id="winRate" class="metric-value">-</div>
-          <div class="metric-note">% of profitable rows</div>
-        </div>
-
-        <div class="metric-card accent-blue">
-          <div class="metric-label">Best Contract</div>
-          <div id="bestContract" class="metric-value metric-value-small">-</div>
-          <div class="metric-note">Highest profit row</div>
-        </div>
-
-        <div class="metric-card accent-purple">
-          <div class="metric-label">Worst Contract</div>
-          <div id="worstContract" class="metric-value metric-value-small">-</div>
-          <div class="metric-note">Lowest profit row</div>
-        </div>
-      </section>
-
-      <section class="panel">
-        <div class="panel-header">
-          <h2>Cumulative P&amp;L Curve</h2>
-          <p>Running arbitrage profit across the selected rows.</p>
-        </div>
-        <div id="cumulativeCurve" class="chart"></div>
-      </section>
-
-      <section class="panel">
-        <div class="panel-header">
-          <h2>Profit by Contract</h2>
-          <p>Per-row profit for the selected date range and contracts.</p>
-        </div>
-        <div id="contractBar" class="chart"></div>
-      </section>
-
-      <section class="panel">
-        <div class="panel-header">
-          <h2>Quarter-hour Heatmap</h2>
-          <p>Average profit by date and quarter-hour contract.</p>
-        </div>
-        <div id="heatmap" class="chart"></div>
-      </section>
-
-      <section class="panel">
-        <div class="panel-header">
-          <h2>Profit Histogram</h2>
-          <p>Distribution of profit across selected rows.</p>
-        </div>
-        <div id="histogram" class="chart"></div>
-      </section>
-
-      <section class="two-col">
-        <section class="panel">
-          <div class="panel-header">
-            <h2>Top 10 Contracts</h2>
-            <p>Most profitable quarter-hours in the selected scenario.</p>
-          </div>
-          <div id="topContracts" class="table-wrap"></div>
-        </section>
-
-        <section class="panel">
-          <div class="panel-header">
-            <h2>Bottom 10 Contracts</h2>
-            <p>Least profitable quarter-hours in the selected scenario.</p>
-          </div>
-          <div id="bottomContracts" class="table-wrap"></div>
-        </section>
-      </section>
-
-      <section class="panel">
-        <details id="detailsPanel">
-          <summary class="details-summary">
-            <span>Contract Breakdown</span>
-            <span class="details-sub">Click to expand detailed pricing table</span>
-          </summary>
-          <div class="details-body">
-            <div id="table" class="table-wrap"></div>
-          </div>
-        </details>
-      </section>
-    </main>
-  </div>
-
-  <script src="app.js"></script>
 </body>
 </html>

@@ -2,7 +2,7 @@ name: Electricity Market Analysis
 
 on:
   schedule:
-    - cron: "0 7 * * *"
+    - cron: "0 7 * * *"  # Daily at 7 AM UTC
   workflow_dispatch:
 
 jobs:
@@ -24,18 +24,84 @@ jobs:
           python-version: "3.11"
 
       - name: Install dependencies
-        run: pip install pandas matplotlib
-
-      - name: Run analysis
         run: |
+          python -m pip install --upgrade pip
+          pip install pandas matplotlib
+
+      - name: Create output directories
+        run: |
+          mkdir -p docs/data
+          mkdir -p build/charts
+          mkdir -p build/reports
+          echo "✓ Output directories created"
+
+      - name: Run analysis scripts
+        run: |
+          echo "Running build_analysis.py..."
           python analysis/build_analysis.py
+          echo "✓ build_analysis.py completed"
+          
+          echo "Running build_selector_data.py..."
           python analysis/build_selector_data.py
+          echo "✓ build_selector_data.py completed"
+          
+          echo "Running build_bess_dashboard_data.py..."
+          python analysis/build_bess_dashboard_data.py
+          echo "✓ build_bess_dashboard_data.py completed"
+
+      - name: Validate generated files
+        run: |
+          echo "Validating generated files..."
+          
+          # Check contract_profits.json
+          if [ -f docs/data/contract_profits.json ]; then
+            echo "✓ contract_profits.json exists"
+            python -c "import json; json.load(open('docs/data/contract_profits.json'))" && echo "✓ contract_profits.json is valid JSON"
+          else
+            echo "✗ contract_profits.json not found"
+            exit 1
+          fi
+          
+          # Check selector_options.json
+          if [ -f docs/data/selector_options.json ]; then
+            echo "✓ selector_options.json exists"
+            python -c "import json; json.load(open('docs/data/selector_options.json'))" && echo "✓ selector_options.json is valid JSON"
+          else
+            echo "✗ selector_options.json not found"
+            exit 1
+          fi
+          
+          # Check BESS files
+          for file in bess_summary.json bess_trades.json bess_schedule.json; do
+            if [ -f "docs/data/$file" ]; then
+              echo "✓ $file exists"
+              python -c "import json; json.load(open('docs/data/$file'))" && echo "✓ $file is valid JSON"
+            else
+              echo "✗ $file not found"
+              exit 1
+            fi
+          done
+          
+          echo "✓ All files validated successfully"
 
       - name: Commit generated outputs
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          mkdir -p charts reports docs/data
-          git add charts reports docs
-          git diff --cached --quiet || git commit -m "Update analysis outputs"
-          git push
+          
+          # Check if there are changes to commit
+          if git diff --quiet docs/data/ build/; then
+            echo "No changes to commit"
+          else
+            echo "Committing changes..."
+            git add docs/data/ build/
+            git commit -m "Update analysis outputs [skip ci]"
+            git push
+            echo "✓ Changes committed and pushed"
+          fi
+
+      - name: Workflow completed successfully
+        run: |
+          echo "✓ Electricity Market Analysis workflow completed successfully"
+          echo "✓ All data files generated and validated"
+          echo "✓ Dashboard is ready for viewing"
