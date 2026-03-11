@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Nordpool Market Analysis</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <!-- Use the stylesheet from the docs directory -->
+  <link rel="stylesheet" href="docs/styles.css">
+  <!-- Include Plotly library for chart rendering -->
+  <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+</head>
+<body>
+  <header class="hero">
+    <div>
+      <h1>Nordpool Market Analysis</h1>
+      <p class="hero-sub">Analyze Day‑Ahead vs Intraday arbitrage by area, strategy, date range, and quarter‑hour contracts.</p>
+    </div>
+  </header>
+  <main class="dashboard">
+    <!-- Scenario Setup Panel -->
+    <section class="panel panel-controls">
+      <div class="panel-header">
+        <h2>Scenario Setup</h2>
+      </div>
+      <div class="panel-body">
+        <div class="control-group">
+          <label for="area">Area:</label>
+          <select id="area">
+            <option value="All">All</option>
+          </select>
+        </div>
+        <div class="control-group">
+          <label for="strategy">Strategy:</label>
+          <select id="rule">
+            <option value="All">All</option>
+          </select>
+        </div>
+        <div class="control-group">
+          <label for="direction">Direction:</label>
+          <select id="direction">
+            <option value="All">All</option>
+            <option value="BUY">BUY</option>
+            <option value="SELL">SELL</option>
+          </select>
+        </div>
+        <div class="control-group date-group">
+          <label for="start-date">Start Date:</label>
+          <input type="date" id="start-date" value="2024-01-01">
+        </div>
+        <div class="control-group date-group">
+          <label for="end-date">End Date:</label>
+          <input type="date" id="end-date" value="2024-12-31">
+        </div>
+        <div class="control-group">
+          <label for="contracts">Contracts:</label>
+          <select id="contract" multiple size="5">
+            <!-- options will be populated dynamically -->
+          </select>
+          <div class="preset-buttons">
+            <button id="presetFull">Full</button>
+            <button id="presetBase">Base</button>
+            <button id="presetPeak">Peak</button>
+          </div>
+        </div>
+      </div>
+    </section>
+    <!-- BESS Strategy Section -->
+    <section class="panel panel-bess">
+      <div class="panel-header">
+        <h2>BESS Strategy</h2>
+      </div>
+      <div class="panel-body">
+        <div class="control-group">
+          <label for="strategy-select">BESS Model:</label>
+          <select id="strategy-select">
+            <option value="BES1">BES1</option>
+            <option value="BES2">BES2</option>
+            <option value="BES3">BES3</option>
+          </select>
+        </div>
+        <div class="control-group">
+          <label for="storage-capacity">Capacity (MWh):</label>
+          <input type="number" id="storage-capacity" value="0.1" step="0.1" min="0.1" max="10">
+        </div>
+        <div class="control-group">
+          <label for="battery-efficiency">Efficiency (%):</label>
+          <input type="number" id="battery-efficiency" value="90" step="1" min="70" max="100">
+        </div>
+        <div class="control-group">
+          <label for="max-charge">Max Charge Rate:</label>
+          <input type="number" id="max-charge" value="2" min="1" max="4">
+        </div>
+        <div class="control-group">
+          <label for="max-discharge">Max Discharge Rate:</label>
+          <input type="number" id="max-discharge" value="2" min="1" max="4">
+        </div>
+      </div>
+    </section>
+    <!-- Metrics Section -->
+    <section class="panel panel-metrics">
+      <div class="panel-header">
+        <h2>Overview Metrics</h2>
+      </div>
+      <div class="panel-body metrics-container">
+        <div class="metric">
+          <span class="metric-title">Total Profit</span>
+          <span id="total-profit">-</span>
+        </div>
+        <div class="metric">
+          <span class="metric-title">Selected Contracts</span>
+          <span id="contract-count">-</span>
+        </div>
+        <div class="metric">
+          <span class="metric-title">Average Profit</span>
+          <span id="avg-profit">-</span>
+        </div>
+        <div class="metric">
+          <span class="metric-title">Win Rate (%)</span>
+          <span id="win-rate">-</span>
+        </div>
+      </div>
+    </section>
+    <!-- Charts Section -->
+    <section class="panel panel-charts">
+      <div class="panel-header">
+        <h2>Charts</h2>
+      </div>
+      <div class="panel-body charts-container">
+        <div id="cumulative-chart" class="chart">-</div>
+        <div id="profit-chart" class="chart">-</div>
+        <div id="heatmap" class="chart">-</div>
+        <div id="histogram" class="chart">-</div>
+      </div>
+    </section>
+    <!-- Tables Section -->
+    <section class="panel panel-tables">
+      <div class="panel-header">
+        <h2>Top & Bottom 10 Contracts</h2>
+      </div>
+      <div class="panel-body tables-container">
+        <div class="table-wrapper">
+          <h3>Top 10</h3>
+          <div id="table-top" class="table">-</div>
+        </div>
+        <div class="table-wrapper">
+          <h3>Bottom 10</h3>
+          <div id="table-bottom" class="table">-</div>
+        </div>
+      </div>
+    </section>
+    <!-- Detailed Table Section -->
+    <section class="panel panel-details">
+      <div class="panel-header">
+        <h2>Contract Breakdown</h2>
+      </div>
+      <div class="panel-body">
+        <div id="table" class="table">-</div>
+      </div>
+    </section>
+  </main>
+  <!-- Load the JavaScript from the docs directory -->
+  <script src="docs/app.js"></script>
+</body>
+</html>
