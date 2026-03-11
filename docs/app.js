@@ -99,5 +99,5 @@ async function loadData(){
       yaxis: { title: "Profit (€)" }
     }
   );
-
+loadData();
 }
