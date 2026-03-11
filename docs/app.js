@@ -1,5 +1,47 @@
 function renderChart(){
 
+  let filteredData = [];
+let allData = [];
+
+async function loadData(){
+
+  try{
+
+    const res = await fetch("./reports/arbitrage_opportunities_all_areas.csv");
+
+    if(!res.ok){
+      throw new Error("Dataset not found");
+    }
+
+    const text = await res.text();
+
+    const rows = text.split("\n").slice(1);
+
+    allData = rows
+      .map(r => r.split(","))
+      .filter(r => r.length > 5)
+      .map(r => ({
+        date: r[0],
+        rule: r[1],
+        contract_sort: Number(r[2]),
+        profit: Number(r[3])
+      }));
+
+    filteredData = allData;
+
+    renderChart();
+
+  }catch(err){
+
+    console.warn("Data not loaded", err);
+
+    document.getElementById("cumulativePLChart").innerHTML =
+      "<p style='padding:20px'>No data available yet.</p>";
+
+  }
+
+}
+
   if(filteredData.length === 0){
     Plotly.purge("cumulativePLChart");
     return;
