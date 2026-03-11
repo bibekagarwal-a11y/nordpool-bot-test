@@ -90,22 +90,35 @@ function renderChart(){
   const y = [];
 
   filteredData
-    .sort((a,b)=>a.contract_sort - b.contract_sort)
+    .sort((a,b)=>{
+      if(a.date === b.date){
+        return a.contract_sort - b.contract_sort;
+      }
+      return new Date(a.date) - new Date(b.date);
+    })
     .forEach(r=>{
       cumulative += parseFloat(r.profit) || 0;
 
-      // combine date and contract time for X axis
-      x.push(`${r.date} ${r.contract}`);
+      const label = `${r.date} ${r.contract}`;
 
+      x.push(label);
       y.push(cumulative);
     });
 
-  Plotly.newPlot("cumulativePLChart",[{
-    x: x,
-    y: y,
-    type: "scatter",
-    mode: "lines",
-    line: { color:"#4ade80" }
-  }]);
+  Plotly.newPlot(
+    "cumulativePLChart",
+    [{
+      x: x,
+      y: y,
+      type: "scatter",
+      mode: "lines",
+      line: { color:"#4ade80" }
+    }],
+    {
+      title: "Cumulative Profit",
+      xaxis: { title: "Contract Time" },
+      yaxis: { title: "Profit (€)" }
+    }
+  );
 
 }
