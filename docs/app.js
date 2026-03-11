@@ -79,29 +79,33 @@ function applyFilters(){
 
 function renderChart(){
 
-  if(filteredData.length===0){
+  if(filteredData.length === 0){
+    Plotly.purge("cumulativePLChart");
     return;
   }
 
-  let cumulative=0;
+  let cumulative = 0;
 
-  const x=[];
-  const y=[];
+  const x = [];
+  const y = [];
 
   filteredData
-    .sort((a,b)=>new Date(a.date)-new Date(b.date))
+    .sort((a,b)=>a.contract_sort - b.contract_sort)
     .forEach(r=>{
-      cumulative+=parseFloat(r.profit)||0;
-      x.push(r.date);
+      cumulative += parseFloat(r.profit) || 0;
+
+      // combine date and contract time for X axis
+      x.push(`${r.date} ${r.contract}`);
+
       y.push(cumulative);
     });
 
   Plotly.newPlot("cumulativePLChart",[{
-    x:x,
-    y:y,
-    type:"scatter",
-    mode:"lines",
-    line:{color:"#4ade80"}
+    x: x,
+    y: y,
+    type: "scatter",
+    mode: "lines",
+    line: { color:"#4ade80" }
   }]);
 
 }
