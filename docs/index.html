@@ -150,10 +150,11 @@
       </div>
     </section>
     <!-- Detailed Table -->
-    <section class='table-section'>
-      <h3>Contract Breakdown</h3>
+    <!-- Use a collapsible details element to allow users to minimize the breakdown table -->
+    <details class='table-section'>
+      <summary>Contract Breakdown</summary>
       <div id='table' aria-live='polite'>Select criteria and run the analysis to see contract details.</div>
-    </section>
+    </details>
   </main>
   <!-- Application script -->
   <script src='app.js'></script>

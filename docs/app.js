@@ -156,8 +156,19 @@ function populateSelectors() {
   if (!dates.length) throw new Error("No dates found in data.");
   setOptions("area", areas);
   setOptions("rule", rules, RULE_LABELS);
-  document.getElementById("startDate").value = dates[0];
-  document.getElementById("endDate").value = dates[dates.length - 1];
+  // Set the date pickers to the available range and restrict selectable dates
+  const startInput = document.getElementById("startDate");
+  const endInput = document.getElementById("endDate");
+  if (startInput) {
+    startInput.value = dates[0];
+    startInput.min = dates[0];
+    startInput.max = dates[dates.length - 1];
+  }
+  if (endInput) {
+    endInput.value = dates[dates.length - 1];
+    endInput.min = dates[0];
+    endInput.max = dates[dates.length - 1];
+  }
   updateContracts();
 }
 
@@ -384,6 +395,9 @@ function renderContractBar(filtered) {
   const labels = filtered.map((x) => `${x.date} | ${x.contract}`);
   const profits = filtered.map((x) => Number(x.profit));
   const colors = profits.map((v) => (v >= 0 ? "#16a34a" : "#dc2626"));
+  // Determine tick interval dynamically to avoid overcrowding on the x axis
+  const totalLabels = labels.length;
+  const dtick = Math.max(1, Math.ceil(totalLabels / 12));
   Plotly.newPlot(
     "contractBar",
     [
@@ -399,7 +413,12 @@ function renderContractBar(filtered) {
       margin: { l: 60, r: 20, t: 20, b: 120 },
       paper_bgcolor: "white",
       plot_bgcolor: "white",
-      xaxis: { title: "Date | Contract", tickangle: -60, gridcolor: "#eaecf0" },
+      xaxis: {
+        title: "Date | Contract",
+        tickangle: -60,
+        gridcolor: "#eaecf0",
+        dtick: dtick,
+      },
       yaxis: { title: "Profit (€/MWh)", gridcolor: "#eaecf0" },
     },
     { responsive: true, displayModeBar: false }
@@ -416,6 +435,9 @@ function renderCumulativeCurve(filtered) {
     cumulative[i] = next;
     return next;
   }, 0);
+  // Determine tick interval dynamically to avoid overcrowding on the x axis
+  const totalLabels = labels.length;
+  const dtick = Math.max(1, Math.ceil(totalLabels / 12));
   Plotly.newPlot(
     "cumulativeCurve",
     [
@@ -432,7 +454,12 @@ function renderCumulativeCurve(filtered) {
       margin: { l: 60, r: 20, t: 20, b: 120 },
       paper_bgcolor: "white",
       plot_bgcolor: "white",
-      xaxis: { title: "Date | Contract", tickangle: -60, gridcolor: "#eaecf0" },
+      xaxis: {
+        title: "Date | Contract",
+        tickangle: -60,
+        gridcolor: "#eaecf0",
+        dtick: dtick,
+      },
       yaxis: { title: "Cumulative P&L (€/MWh)", gridcolor: "#eaecf0" },
     },
     { responsive: true, displayModeBar: false }
