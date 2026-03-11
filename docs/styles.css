@@ -101,6 +101,27 @@ body {
   font-size: 20px;
 }
 
+/* Lighten headings on dark backgrounds */
+.chart-box h3,
+.bess-title,
+.table-title,
+.table-section summary {
+  color: var(--panel);
+}
+
+/* Style the summary element for contract breakdown */
+details > summary {
+  color: var(--text);
+  cursor: pointer;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+
+/* Hide default marker for summary */
+details > summary::-webkit-details-marker {
+  display: none;
+}
+
 .panel-header p {
   margin: 0;
   color: var(--muted);
