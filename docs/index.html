@@ -1,73 +1,145 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Nordpool Market Dashboard</title>
-
-<script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
-
-<link rel="stylesheet" href="styles.css">
-
-  
-<style>
-body{
-  font-family: Arial, sans-serif;
-  background:#0f172a;
-  color:white;
-  margin:0;
-}
-
-.container{
-  max-width:1200px;
-  margin:auto;
-  padding:20px;
-}
-
-select{
-  padding:8px;
-  margin-right:10px;
-}
-
-.chart{
-  margin-top:30px;
-}
-</style>
-
+  <meta charset="utf-8" />
+  <title>Electricity Arbitrage Explorer</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+  <link rel="stylesheet" href="styles.css" />
 </head>
-
 <body>
+  <div class="page-shell">
+    <header class="hero">
+      <div>
+        <p class="eyebrow">Nord Pool Analytics</p>
+        <h1>Electricity Arbitrage Explorer</h1>
+        <p class="hero-sub">
+          Explore quarter-hour trading opportunities by area, date, rule, and direction.
+        </p>
+      </div>
+      <div class="hero-badge">
+        <span>Live from GitHub Pages</span>
+      </div>
+    </header>
 
-<div class="container">
+    <main class="dashboard">
+      <section class="panel controls-panel">
+        <div class="panel-header">
+          <h2>Filters</h2>
+          <p>Choose the market setup you want to analyse.</p>
+        </div>
 
-<h1>⚡ Nordpool Market Analysis</h1>
+        <div class="button-row" style="margin-top: 12px;">
+  <button type="button" id="selectAllDatesBtn" class="btn secondary">Select all dates</button>
+  <button type="button" id="clearAllDatesBtn" class="btn ghost">Clear all dates</button>
 
-<div>
-
-<label>Area</label>
-<select id="area">
-<option value="">All</option>
-</select>
-
-<label>Strategy</label>
-<select id="strategy">
-<option value="">All</option>
-</select>
-
-<label>Contract</label>
-<select id="contract">
-<option value="">All</option>
-</select>
-
+  <button type="button" id="selectAllBtn" class="btn secondary">Select all contracts</button>
+  <button type="button" id="clearAllBtn" class="btn ghost">Clear all contracts</button>
 </div>
 
-<div id="cumulativePLChart" class="chart"></div>
+        <div class="controls-grid">
+          <label class="field">
+            <span>Area</span>
+            <select id="area"></select>
+          </label>
 
-</div>
+          <label class="field">
+            <span>Rule</span>
+            <select id="rule"></select>
+          </label>
 
-<script src="./app.js"></script>
+          <label class="field">
+            <span>Direction</span>
+            <select id="direction">
+              <option value="forward">Buy first market, sell second market</option>
+              <option value="reverse">Buy second market, sell first market</option>
+            </select>
+          </label>
 
+<label class="field">
+  <span>Start date</span>
+  <input type="date" id="startDate">
+</label>
+
+<label class="field">
+  <span>End date</span>
+  <input type="date" id="endDate">
+</label>
+        </div>
+
+        <label class="field contract-field">
+          <span>Quarter-hour contracts</span>
+          <select id="contracts" multiple size="12"></select>
+        </label>
+
+        <div class="button-row" style="margin-top: 12px;">
+          <button type="button" id="selectAllBtn" class="btn secondary">Select all</button>
+          <button type="button" id="clearAllBtn" class="btn ghost">Clear all</button>
+        </div>
+      </section>
+
+      <section class="summary-grid">
+        <div class="metric-card accent-green">
+          <div class="metric-label">Total Profit</div>
+          <div id="profit" class="metric-value">-</div>
+          <div class="metric-note">Across selected contracts</div>
+        </div>
+
+        <div class="metric-card accent-blue">
+          <div class="metric-label">Selected Contracts</div>
+          <div id="contractCount" class="metric-value">-</div>
+          <div class="metric-note">Quarter-hour positions</div>
+        </div>
+
+        <div class="metric-card accent-purple">
+          <div class="metric-label">Average Profit</div>
+          <div id="avgProfit" class="metric-value">-</div>
+          <div class="metric-note">Per selected contract</div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-header">
+          <h2>Profit Histogram</h2>
+          <p>Distribution of profit across selected quarter-hours.</p>
+        </div>
+        <div id="histogram" class="chart"></div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-header">
+          <h2>Profit by Contract</h2>
+          <p>Per-contract arbitrage profit.</p>
+        </div>
+        <div id="contractBar" class="chart"></div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-header">
+          <h2>Cumulative P&amp;L Curve</h2>
+          <p>Running profit across the selected contracts.</p>
+        </div>
+        <div id="cumulativeCurve" class="chart"></div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-header">
+          <h2>Top 10 Most Profitable Contracts</h2>
+          <p>Best quarter-hours for the selected setup.</p>
+        </div>
+        <div id="topContracts" class="table-wrap"></div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-header">
+          <h2>Contract Breakdown</h2>
+          <p>Buy price, sell price, and contract-level profit.</p>
+        </div>
+        <div id="table" class="table-wrap"></div>
+      </section>
+    </main>
+  </div>
+
+  <script src="app.js"></script>
 </body>
 </html>
-<!-- rebuild -->
