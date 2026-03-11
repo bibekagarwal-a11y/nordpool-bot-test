@@ -425,3 +425,71 @@ tbody tr:hover {
     font-size: 28px;
   }
 }
+
+/* Custom metric buttons and table styling */
+.metric-buttons-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.metric-button {
+  padding: 16px;
+  border-radius: var(--radius);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  box-shadow: var(--shadow);
+}
+
+.metric-button .metric-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+
+.metric-button .metric-value {
+  font-size: 32px;
+  font-weight: 800;
+  line-height: 1.1;
+}
+
+.metric-button.accent-green {
+  background: var(--green-soft);
+  color: var(--green);
+}
+
+.metric-button.accent-blue {
+  background: var(--blue-soft);
+  color: var(--primary);
+}
+
+.metric-button.accent-purple {
+  background: var(--purple-soft);
+  color: var(--purple);
+}
+
+.metric-button.accent-orange {
+  background: #fef3c7;
+  color: #b45309;
+}
+
+.table-box {
+  background: white;
+  border-radius: var(--radius);
+  border: 1px solid var(--panel-border);
+  box-shadow: var(--shadow);
+  padding: 16px;
+}
+
+.table-title {
+  font-size: 18px;
+  font-weight: 700;
+  margin-bottom: 10px;
+  color: var(--text);
+}
+
+.table-content {
+  overflow-x: auto;
+}
