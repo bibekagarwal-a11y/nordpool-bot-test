@@ -1,67 +1,566 @@
-/* New responsive grid layout for top form fields */
-.filters-grid {
+/*
+ * Combined base styles and custom overrides for the Nordpool dashboard.
+ *
+ * This stylesheet defines base variables, layout, and components used
+ * throughout the dashboard.  At the end of the file, we append custom
+ * overrides to refine the user interface, including responsive grids
+ * for tables and charts, unified metric card styling, chip/button
+ * styles, and improved heading colours for dark panels.  These
+ * overrides ensure a polished, readable layout without sacrificing
+ * flexibility.  The final section provides additional accessibility
+ * improvements such as white headings on dark backgrounds and
+ * customised summary elements for collapsible sections.
+ */
+
+:root {
+  --bg: #0b1020;
+  --bg-soft: #121933;
+  --panel: #ffffff;
+  --panel-border: #e7eaf3;
+  --text: #101828;
+  --muted: #667085;
+  --primary: #2563eb;
+  --primary-soft: #dbeafe;
+  --green: #16a34a;
+  --green-soft: #dcfce7;
+  --purple: #7c3aed;
+  --purple-soft: #ede9fe;
+  --blue-soft: #dbeafe;
+  --shadow: 0 10px 30px rgba(16, 24, 40, 0.08);
+  --radius: 18px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  color: var(--text);
+  background: radial-gradient(circle at top left, rgba(37, 99, 235, 0.18), transparent 30%),
+    radial-gradient(circle at top right, rgba(124, 58, 237, 0.14), transparent 28%),
+    linear-gradient(180deg, var(--bg) 0%, #0f172a 24%, #eef2ff 24%, #f8fafc 100%);
+  min-height: 100vh;
+}
+
+.page-shell {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 28px 20px 56px;
+}
+
+.hero {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  align-items: flex-start;
+  color: white;
+  margin-bottom: 26px;
+}
+
+.eyebrow {
+  margin: 0 0 8px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.8;
+}
+
+.hero h1 {
+  margin: 0;
+  font-size: 38px;
+  line-height: 1.05;
+}
+
+.hero-sub {
+  margin: 12px 0 0;
+  max-width: 760px;
+  color: rgba(255, 255, 255, 0.82);
+  font-size: 16px;
+}
+
+.hero-badge {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  backdrop-filter: blur(10px);
+  color: white;
+  padding: 10px 14px;
+  border-radius: 999px;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.dashboard {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-  gap: 0.75rem;
+  gap: 20px;
+}
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 20px;
+}
+
+.panel-header {
+  margin-bottom: 16px;
+}
+
+.panel-header h2 {
+  margin: 0 0 6px;
+  font-size: 20px;
+}
+
+/* Lighten headings on dark backgrounds (default panel headings use var(--panel) which is white) */
+.chart-box h3,
+.bess-title,
+.table-title,
+.table-section summary {
+  color: var(--panel);
+}
+
+/* Style the summary element for contract breakdown */
+details > summary {
+  color: var(--text);
+  cursor: pointer;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+
+/* Hide default marker for summary in WebKit */
+details > summary::-webkit-details-marker {
+  display: none;
+}
+
+.panel-header p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.controls-layout {
+  display: grid;
+  grid-template-columns: 1.35fr 0.95fr;
+  gap: 20px;
+  align-items: stretch;
+}
+
+.scenario-panel,
+.compact-contracts-panel {
+  min-height: 290px;
+}
+
+.filters-top {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(150px, 1fr));
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.filter {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.filter label {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.filter select,
+.filter input {
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid #d0d5dd;
+  font-size: 14px;
+  background: white;
+}
+
+.bess-box {
+  margin-top: 18px;
+  border: 1px solid #dbeafe;
+  background: #eff6ff;
+  border-radius: 14px;
+  padding: 14px 16px;
+}
+
+.bess-config-box {
+  margin-top: 16px;
+  border: 1px solid #e5e7eb;
+  background: #f8fafc;
+  border-radius: 14px;
+  padding: 14px 16px;
+}
+
+.bess-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #1d4ed8;
+  margin-bottom: 8px;
+}
+
+.bess-content {
+  font-size: 14px;
+  line-height: 1.5;
+  color: #0f172a;
+}
+
+.bess-config-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(140px, 1fr));
+  gap: 12px;
+}
+
+.contracts-panel {
+  border-top: 1px solid #e4e7ec;
+  padding-top: 16px;
+}
+
+.compact-contracts-panel {
+  display: flex;
+  flex-direction: column;
+}
+
+.contracts-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.contracts-header h3 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.contract-buttons {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+
+.btn {
+  border: 1px solid #d0d5dd;
+  border-radius: 12px;
+  padding: 10px 14px;
+  font-weight: 700;
+  cursor: pointer;
+  background: white;
+}
+
+.btn.secondary {
+  background: var(--primary);
+  color: white;
+  border-color: var(--primary);
+}
+
+.btn.ghost {
+  background: #eef2ff;
+  color: #344054;
+}
+
+.preset-btn.active-preset {
+  background: #2563eb;
+  color: white;
+  border-color: #2563eb;
+}
+
+#contracts {
+  width: 100%;
+  border-radius: 12px;
+  border: 1px solid #d0d5dd;
+  padding: 8px;
+  font-size: 13px;
+  background: white;
+  flex: 1;
+  min-height: 180px;
+  max-height: 220px;
+}
+
+.summary-grid {
+  display: grid;
+  gap: 16px;
+}
+
+.summary-grid-6 {
+  grid-template-columns: repeat(3, minmax(220px, 1fr));
+}
+
+.metric-card {
+  background: white;
+  border-radius: var(--radius);
+  border: 1px solid var(--panel-border);
+  box-shadow: var(--shadow);
+  padding: 18px;
+  position: relative;
+  overflow: hidden;
+}
+
+.metric-card::after {
+  content: "";
+  position: absolute;
+  right: -20px;
+  top: -20px;
+  width: 110px;
+  height: 110px;
+  border-radius: 50%;
+  opacity: 0.45;
+}
+
+.accent-green::after {
+  background: var(--green-soft);
+}
+
+.accent-blue::after {
+  background: var(--blue-soft);
+}
+
+.accent-purple::after {
+  background: var(--purple-soft);
+}
+
+.metric-label {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+  margin-bottom: 10px;
+}
+
+.metric-value {
+  font-size: 34px;
+  font-weight: 800;
+  line-height: 1.05;
+  margin-bottom: 8px;
+}
+
+.metric-value-small {
+  font-size: 20px;
+  line-height: 1.2;
+}
+
+.metric-note {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.chart {
+  height: 460px;
+}
+
+.two-col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+.table-wrap {
+  overflow-x: auto;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  background: white;
+}
+
+th,
+td {
+  border-bottom: 1px solid #eaecf0;
+  padding: 12px 10px;
+  font-size: 14px;
+}
+
+th {
+  text-align: left;
+  background: #f8fafc;
+}
+
+td:not(:first-child) {
+  text-align: right;
+}
+
+tbody tr:hover {
+  background: #f8fafc;
+}
+
+.details-summary {
+  list-style: none;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-weight: 700;
+  font-size: 18px;
+  padding: 4px 0;
+}
+
+.details-summary::-webkit-details-marker {
+  display: none;
+}
+
+.details-sub {
+  font-weight: 500;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.details-body {
+  margin-top: 16px;
+}
+
+.positive-text {
+  color: #15803d;
+}
+
+.negative-text {
+  color: #b42318;
+}
+
+@media (max-width: 1100px) {
+  .controls-layout {
+    grid-template-columns: 1fr;
+  }
+  .filters-top {
+    grid-template-columns: repeat(2, minmax(180px, 1fr));
+  }
+  .summary-grid-6 {
+    grid-template-columns: repeat(2, minmax(220px, 1fr));
+  }
+  .two-col {
+    grid-template-columns: 1fr;
+  }
+  #contracts {
+    max-height: 260px;
+  }
+}
+
+@media (max-width: 900px) {
+  .bess-config-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 640px) {
-  .filters-grid {
-    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  .filters-top,
+  .summary-grid-6 {
+    grid-template-columns: 1fr;
   }
+  .hero {
+    flex-direction: column;
+  }
+  .hero h1 {
+    font-size: 30px;
+  }
+  .metric-value {
+    font-size: 28px;
+  }
+}
+
+/* Custom metric buttons and table styling */
+.metric-buttons-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.metric-button {
+  padding: 16px;
+  border-radius: var(--radius);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  box-shadow: var(--shadow);
+}
+
+.metric-button .metric-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+
+.metric-button .metric-value {
+  font-size: 32px;
+  font-weight: 800;
+  line-height: 1.1;
+}
+
+.metric-button.accent-green {
+  background: var(--green-soft);
+  color: var(--green);
+}
+
+.metric-button.accent-blue {
+  background: var(--blue-soft);
+  color: var(--primary);
+}
+
+.metric-button.accent-purple {
+  background: var(--purple-soft);
+  color: var(--purple);
+}
+
+/*
+ * Custom overrides and new styles
+ *
+ * The following rules override defaults to unify metric cards,
+ * define chip/button styles, and lay out results horizontally when
+ * space permits.  They also ensure headings are readable when
+ * placed on dark backgrounds.
+ */
+
+/* Responsive grid layout for top form fields */
+.filters-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+  margin-bottom: 20px;
 }
 
 /* Style for action buttons (Select all, Clear) */
 .action-btn {
-  background-color: transparent;
-  color: #2563eb;
-  border: 1px solid #2563eb;
-  border-radius: 4px;
-  padding: 0.4rem 0.75rem;
-  font-size: 0.875rem;
+  border: 1px solid #d0d5dd;
+  background: #f3f4f6;
+  color: #344054;
+  padding: 8px 12px;
+  border-radius: 8px;
   cursor: pointer;
-  margin-right: 0.5rem;
-  white-space: nowrap;
-}
-
-.action-btn:hover {
-  background-color: #eff6ff;
+  font-size: 14px;
 }
 
 /* Style for preset chips (Base, Peak, etc.) */
 .preset-chip {
-  background-color: #f3f4f6;
-  border: 1px solid #e5e7eb;
-  border-radius: 9999px;
-  padding: 0.4rem 0.75rem;
-  font-size: 0.875rem;
+  border: 1px solid var(--primary);
+  background: var(--primary-soft);
+  color: var(--primary);
+  padding: 8px 12px;
+  border-radius: 999px;
   cursor: pointer;
-  margin-right: 0.5rem;
-  white-space: nowrap;
+  font-size: 14px;
+  font-weight: 600;
 }
 
-.preset-chip.active-preset {
-  background-color: #e0e7ff;
-  border-color: #c7d2fe;
+.preset-chip.active {
+  background: var(--primary);
+  color: white;
 }
 
-.preset-chip:hover {
-  background-color: #f5f5f5;
-}
-
-/* Primary CTA button */
+/* Primary call-to-action button */
 .btn-primary {
-  background-color: #2563eb;
+  background: var(--primary);
   color: white;
   border: none;
-  border-radius: 0.375rem;
-  padding: 0.6rem 1rem;
-  font-size: 1rem;
-  font-weight: 600;
+  padding: 12px 20px;
+  border-radius: 12px;
+  font-size: 16px;
+  font-weight: 700;
   cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
 }
 
 .btn-primary:disabled {
@@ -69,80 +568,33 @@
   cursor: not-allowed;
 }
 
-/* Unified metric card style with neutral background and colored text */
+/* Override metric button background to white and use text colour classes */
 .metric-button {
-  background-color: white;
-  border: 1px solid #e5e7eb;
-  border-radius: 0.5rem;
-  padding: 0.75rem;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  justify-content: center;
-  gap: 0.25rem;
-  min-width: 0;
-}
-
-.metric-button .metric-label {
-  font-size: 0.875rem;
-  color: #6b7280;
+  background-color: white !important;
+  border: 1px solid var(--panel-border);
+  color: var(--text);
 }
 
 .metric-button .metric-value {
-  font-size: 1.5rem;
-  font-weight: 700;
+  font-size: 32px;
+  font-weight: 800;
 }
 
-.accent-green .metric-value { color: #16a34a; }
-.accent-blue .metric-value { color: #2563eb; }
-.accent-purple .metric-value { color: #7c3aed; }
-.accent-orange .metric-value { color: #ca8a04; }
-
-/* Card container styling for tables and charts */
-.tables-section .table-box,
-.charts-section .chart-box,
-.table-section {
-  background-color: white;
-  border: 1px solid #e5e7eb;
-  border-radius: 0.5rem;
-  padding: 1rem;
-  margin-bottom: 1rem;
+.metric-button.accent-green .metric-value {
+  color: var(--green);
 }
 
-/* Default message style for empty table content */
-.table-content {
-  color: #6b7280;
-  font-style: italic;
+.metric-button.accent-blue .metric-value {
+  color: var(--primary);
 }
 
-/* Chart titles spacing */
-.charts-section .chart-box h3 {
-  margin-bottom: 0.5rem;
+.metric-button.accent-purple .metric-value {
+  color: var(--purple);
 }
 
-/* BESS titles styling to avoid link-like appearance */
-.bess-title {
-  font-weight: 600;
-  color: #111827;
-  margin-bottom: 0.5rem;
+.metric-button.accent-orange .metric-value {
+  color: #b45309;
 }
-
-/* Placeholder styling for BESS content */
-.bess-content {
-  color: #6b7280;
-}
-
-/* Mobile responsiveness for metrics and title */
-@media (max-width: 640px) {
-  .metric-button .metric-value {
-    font-size: 1.25rem;
-  }
-  h1 {
-    font-size: clamp(1.5rem, 5vw, 2rem);
-  }
-}
-
-/* Layout improvements: arrange results in responsive grids */
 
 /* Display top and bottom contract tables side by side on larger screens */
 .tables-section {
@@ -151,47 +603,29 @@
   gap: 1rem;
 }
 
-/* Display charts in a responsive two-column grid on larger screens */
+/* Display charts in a responsive grid on larger screens */
 .charts-section {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
   gap: 1rem;
 }
 
-/* ------------------------------------------------------------
- * Enhancements: improve readability and accessibility
- *
- * The dashboard uses dark blue panels in several areas (e.g. BESS
- * configuration and chart containers).  Default heading styles were
- * dark which resulted in poor contrast against these backgrounds.
- * The following rules ensure headings and summary text appear in a
- * light colour (matching the panel background) for better legibility.
- */
-
-/* Make major headings and table titles white on dark backgrounds */
+/* Improve contrast for headings on dark panels */
 .chart-box h3,
 .bess-title,
 .table-title,
 .table-section summary {
-  color: #fff;
+  color: #ffffff;
 }
 
-/* Improve the appearance of the contract breakdown summary (the
- * collapsible element) by styling the summary element.  Use the
- * panel colour for the text, add pointer cursor and emphasise
- * weight.
- */
+/* Style the contract breakdown summary */
 details > summary {
-  color: #fff;
+  color: #ffffff;
   cursor: pointer;
   font-weight: 600;
   margin-bottom: 0.5rem;
 }
 
-/* Remove the default marker triangle in WebKit browsers so the
- * contract breakdown summary aligns with other headings.  This is
- * optional but improves visual consistency across browsers.
- */
 details > summary::-webkit-details-marker {
   display: none;
 }
