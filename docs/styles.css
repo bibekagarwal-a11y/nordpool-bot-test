@@ -142,6 +142,22 @@
   }
 }
 
+/* Layout improvements: arrange results in responsive grids */
+
+/* Display top and bottom contract tables side by side on larger screens */
+.tables-section {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 1rem;
+}
+
+/* Display charts in a responsive two-column grid on larger screens */
+.charts-section {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 1rem;
+}
+
 /* ------------------------------------------------------------
  * Enhancements: improve readability and accessibility
  *
@@ -157,7 +173,7 @@
 .bess-title,
 .table-title,
 .table-section summary {
-  color: var(--panel);
+  color: #fff;
 }
 
 /* Improve the appearance of the contract breakdown summary (the
@@ -166,7 +182,7 @@
  * weight.
  */
 details > summary {
-  color: var(--panel);
+  color: #fff;
   cursor: pointer;
   font-weight: 600;
   margin-bottom: 0.5rem;
