@@ -286,13 +286,6 @@ function getFilteredRows() {
 }
 
 function renderMetricCards(filtered) {
-  const profits = filtered.map(x => Number(x.profit));
-  const total = profits.reduce((a, b) => a + b, 0);
-  const avg = profits.length ? total / profits.length : 0;
-  const winRate = profits.length
-    ? (profits.filter(x => x > 0).length / profits.length) * 100
-    : 0;
-
   const best = filtered.length
     ? [...filtered].sort((a, b) => b.profit - a.profit)[0]
     : null;
@@ -320,7 +313,6 @@ function renderMetricCards(filtered) {
   } else {
     worstEl.innerText = "-";
   }
-}
 
 function renderBessStrategy(filtered) {
   const bessEl = document.getElementById("bessStrategy");
