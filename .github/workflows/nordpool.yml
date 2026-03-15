@@ -8,7 +8,6 @@ on:
         required: false
         default: "false"
   schedule:
-    # Run hourly; the script itself will only do work once the Paris target hour is reached
     - cron: "5 * * * *"
 
 permissions:
@@ -22,11 +21,8 @@ jobs:
       AREAS: "FR,GER"
       CURRENCY: "EUR"
       START_DATE: "2026-03-01"
-
-      # These names match what nordpool_bot.py actually reads
       ENFORCE_TIME_PARIS: "1"
       TARGET_HOUR: "1"
-
       BACKFILL: ${{ github.event.inputs.backfill == 'true' && '1' || '0' }}
 
     steps:
@@ -47,14 +43,12 @@ jobs:
         run: |
           python nordpool_bot.py
 
-      # Upload raw JSON for debugging (NOT committed to repo)
       - name: Upload raw JSON debug files
         uses: actions/upload-artifact@v4
         with:
           name: nordpool-raw-json
           path: artifacts/raw/
 
-      # Commit only the permanent datasets in data/
       - name: Commit updated datasets
         run: |
           git config user.name "nordpool-bot"
