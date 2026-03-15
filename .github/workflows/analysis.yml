@@ -12,7 +12,6 @@ permissions:
 
 jobs:
   analysis:
-    # Only run automatically if the upstream workflow succeeded
     if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
 
