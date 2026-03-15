@@ -286,33 +286,10 @@ function getFilteredRows() {
 }
 
 function renderMetricCards(filtered) {
-  const best = filtered.length
-    ? [...filtered].sort((a, b) => b.profit - a.profit)[0]
-    : null;
-
-  const worst = filtered.length
-    ? [...filtered].sort((a, b) => a.profit - b.profit)[0]
-    : null;
-
   document.getElementById("profit").innerText = `${total.toFixed(2)} €/MWh`;
   document.getElementById("contractCount").innerText = `${filtered.length}`;
   document.getElementById("avgProfit").innerText = `${avg.toFixed(2)} €/MWh`;
   document.getElementById("winRate").innerText = `${winRate.toFixed(1)}%`;
-
-  const bestEl = document.getElementById("bestContract");
-  const worstEl = document.getElementById("worstContract");
-
-  if (best) {
-    bestEl.innerHTML = `${best.date}<br>${best.contract}<br>${Number(best.profit).toFixed(2)} €/MWh`;
-  } else {
-    bestEl.innerText = "-";
-  }
-
-  if (worst) {
-    worstEl.innerHTML = `${worst.date}<br>${worst.contract}<br>${Number(worst.profit).toFixed(2)} €/MWh`;
-  } else {
-    worstEl.innerText = "-";
-  }
 
 function renderBessStrategy(filtered) {
   const bessEl = document.getElementById("bessStrategy");
