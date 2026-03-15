@@ -15,7 +15,8 @@ const RULE_LABELS = {
 
 async function loadData() {
   try {
-    const res = await fetch("./data/contract_profits.json", { cache: "no-store" });
+const cacheKey = new Date().toISOString().slice(0, 10);
+const res = await fetch(`./data/contract_profits.json?v=${cacheKey}`, { cache: "reload" });
     if (!res.ok) {
       throw new Error(`Failed to load data: ${res.status} ${res.statusText}`);
     }
