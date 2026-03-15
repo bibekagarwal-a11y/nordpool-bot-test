@@ -1,107 +1,71 @@
-name: Electricity Market Analysis
+name: Nord Pool Bot
 
 on:
-  schedule:
-    - cron: "0 7 * * *"  # Daily at 7 AM UTC
   workflow_dispatch:
+    inputs:
+      backfill:
+        description: "Backfill from START_DATE to yesterday"
+        required: false
+        default: "false"
+  schedule:
+    # Run hourly; the script itself will only do work once the Paris target hour is reached
+    - cron: "5 * * * *"
+
+permissions:
+  contents: write
 
 jobs:
-  analysis:
+  run:
     runs-on: ubuntu-latest
 
-    permissions:
-      contents: write
+    env:
+      AREAS: "FR,GER"
+      CURRENCY: "EUR"
+      START_DATE: "2026-03-01"
+
+      # These names match what nordpool_bot.py actually reads
+      ENFORCE_TIME_PARIS: "1"
+      TARGET_HOUR: "1"
+
+      BACKFILL: ${{ github.event.inputs.backfill == 'true' && '1' || '0' }}
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
-          persist-credentials: true
+          fetch-depth: 0
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
-      - name: Install dependencies
+      - name: Install deps
         run: |
           python -m pip install --upgrade pip
-          pip install pandas matplotlib
+          pip install -r requirements.txt
 
-      - name: Create output directories
+      - name: Run bot
         run: |
-          mkdir -p docs/data
-          mkdir -p build/charts
-          mkdir -p build/reports
-          echo "✓ Output directories created"
+          python nordpool_bot.py
 
-      - name: Run analysis scripts
-        run: |
-          echo "Running build_analysis.py..."
-          python analysis/build_analysis.py
-          echo "✓ build_analysis.py completed"
-          
-          echo "Running build_selector_data.py..."
-          python analysis/build_selector_data.py
-          echo "✓ build_selector_data.py completed"
-          
-          echo "Running build_bess_dashboard_data.py..."
-          python analysis/build_bess_dashboard_data.py
-          echo "✓ build_bess_dashboard_data.py completed"
+      # Upload raw JSON for debugging (NOT committed to repo)
+      - name: Upload raw JSON debug files
+        uses: actions/upload-artifact@v4
+        with:
+          name: nordpool-raw-json
+          path: artifacts/raw/
 
-      - name: Validate generated files
+      # Commit only the permanent datasets in data/
+      - name: Commit updated datasets
         run: |
-          echo "Validating generated files..."
-          
-          # Check contract_profits.json
-          if [ -f docs/data/contract_profits.json ]; then
-            echo "✓ contract_profits.json exists"
-            python -c "import json; json.load(open('docs/data/contract_profits.json'))" && echo "✓ contract_profits.json is valid JSON"
-          else
-            echo "✗ contract_profits.json not found"
-            exit 1
-          fi
-          
-          # Check selector_options.json
-          if [ -f docs/data/selector_options.json ]; then
-            echo "✓ selector_options.json exists"
-            python -c "import json; json.load(open('docs/data/selector_options.json'))" && echo "✓ selector_options.json is valid JSON"
-          else
-            echo "✗ selector_options.json not found"
-            exit 1
-          fi
-          
-          # Check BESS files
-          for file in bess_summary.json bess_trades.json bess_schedule.json; do
-            if [ -f "docs/data/$file" ]; then
-              echo "✓ $file exists"
-              python -c "import json; json.load(open('docs/data/$file'))" && echo "✓ $file is valid JSON"
-            else
-              echo "✗ $file not found"
-              exit 1
-            fi
-          done
-          
-          echo "✓ All files validated successfully"
+          git config user.name "nordpool-bot"
+          git config user.email "nordpool-bot@users.noreply.github.com"
 
-      - name: Commit generated outputs
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          
-          # Check if there are changes to commit
-          if git diff --quiet docs/data/ build/; then
-            echo "No changes to commit"
-          else
-            echo "Committing changes..."
-            git add docs/data/ build/
-            git commit -m "Update analysis outputs [skip ci]"
-            git push
-            echo "✓ Changes committed and pushed"
+          git add data/*.csv || true
+
+          if git diff --cached --quiet; then
+            echo "No dataset changes to commit."
+            exit 0
           fi
 
-      - name: Workflow completed successfully
-        run: |
-          echo "✓ Electricity Market Analysis workflow completed successfully"
-          echo "✓ All data files generated and validated"
-          echo "✓ Dashboard is ready for viewing"
+          git commit -m "Update Nord Pool datasets [skip ci]"
+          git push
