@@ -8,7 +8,7 @@ on:
         required: false
         default: "false"
   schedule:
-    # Run hourly; the script itself will only do work at 12:00 Europe/Paris (DST-safe)
+    # Run hourly; the script itself will only do work once the Paris target hour is reached
     - cron: "5 * * * *"
 
 permissions:
@@ -17,11 +17,16 @@ permissions:
 jobs:
   run:
     runs-on: ubuntu-latest
+
     env:
       AREAS: "FR,GER"
       CURRENCY: "EUR"
       START_DATE: "2026-03-01"
-      ENFORCE_NOON_PARIS: "1"
+
+      # These names match what nordpool_bot.py actually reads
+      ENFORCE_TIME_PARIS: "1"
+      TARGET_HOUR: "1"
+
       BACKFILL: ${{ github.event.inputs.backfill == 'true' && '1' || '0' }}
 
     steps:
