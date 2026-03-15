@@ -15,8 +15,11 @@ const RULE_LABELS = {
 
 async function loadData() {
   try {
-const cacheKey = new Date().toISOString().slice(0, 10);
-const res = await fetch(`./data/contract_profits.json?v=${cacheKey}`, { cache: "reload" });
+    const cacheKey = new Date().toISOString().slice(0, 10);
+    const res = await fetch(`./data/contract_profits.json?v=${cacheKey}`, {
+      cache: "reload"
+    });
+
     if (!res.ok) {
       throw new Error(`Failed to load data: ${res.status} ${res.statusText}`);
     }
@@ -38,9 +41,9 @@ function showError(message) {
   const table = document.getElementById("table");
   if (table) {
     table.innerHTML = `
-      <div style="padding:16px;border:1px solid #fda29b;background:#fff1f3;border-radius:12px;color:#b42318;">
-        <strong>Data loading error</strong><br />
-        ${message}
+      <div style="padding:16px;color:#b91c1c;font-weight:600;">
+        Data loading error<br>
+        <span style="font-weight:400;">${message}</span>
       </div>
     `;
   }
@@ -91,8 +94,10 @@ function setActivePreset(buttonId) {
 
 function parseContractStartMinutes(contractLabel) {
   if (!contractLabel || !contractLabel.includes("-")) return null;
+
   const start = contractLabel.split("-")[0];
   const [hh, mm] = start.split(":").map(Number);
+
   if (!Number.isFinite(hh) || !Number.isFinite(mm)) return null;
   return hh * 60 + mm;
 }
@@ -102,6 +107,7 @@ function applyContractPreset(presetName) {
 
   options.forEach(opt => {
     const mins = parseContractStartMinutes(opt.value);
+
     if (mins === null) {
       opt.selected = false;
       return;
@@ -148,28 +154,77 @@ function compareRowsChronologically(a, b) {
 
   const dateCompare = aKey.datePart.localeCompare(bKey.datePart);
   if (dateCompare !== 0) return dateCompare;
+
   return aKey.contractPart - bKey.contractPart;
+}
+
+function getAvailableDates(area, rule) {
+  return unique(
+    data
+      .filter(d => d.area === area && d.rule === rule)
+      .map(d => d.date)
+  )
+    .filter(Boolean)
+    .sort();
+}
+
+function syncDateRangeToSelection() {
+  const area = document.getElementById("area").value;
+  const rule = document.getElementById("rule").value;
+  const startEl = document.getElementById("startDate");
+  const endEl = document.getElementById("endDate");
+
+  const dates = getAvailableDates(area, rule);
+
+  if (!dates.length) {
+    startEl.value = "";
+    endEl.value = "";
+    startEl.min = "";
+    startEl.max = "";
+    endEl.min = "";
+    endEl.max = "";
+    return;
+  }
+
+  const minDate = dates[0];
+  const maxDate = dates[dates.length - 1];
+
+  startEl.min = minDate;
+  startEl.max = maxDate;
+  endEl.min = minDate;
+  endEl.max = maxDate;
+
+  if (!startEl.value || startEl.value < minDate || startEl.value > maxDate) {
+    startEl.value = minDate;
+  }
+
+  if (!endEl.value || endEl.value < minDate || endEl.value > maxDate) {
+    endEl.value = maxDate;
+  }
+
+  if (startEl.value > endEl.value) {
+    startEl.value = minDate;
+    endEl.value = maxDate;
+  }
 }
 
 function populateSelectors() {
   const areas = unique(data.map(x => x.area)).filter(Boolean).sort();
   const rules = unique(data.map(x => x.rule)).filter(Boolean).sort();
-  const dates = unique(data.map(x => x.date)).filter(Boolean).sort();
 
   if (!areas.length) throw new Error("No areas found in data.");
   if (!rules.length) throw new Error("No strategies found in data.");
-  if (!dates.length) throw new Error("No dates found in data.");
 
   setOptions("area", areas);
   setOptions("rule", rules, RULE_LABELS);
 
-  document.getElementById("startDate").value = dates[0];
-  document.getElementById("endDate").value = dates[dates.length - 1];
-
+  syncDateRangeToSelection();
   updateContracts();
 }
 
 function updateContracts() {
+  syncDateRangeToSelection();
+
   const area = document.getElementById("area").value;
   const rule = document.getElementById("rule").value;
   const startDate = document.getElementById("startDate").value;
@@ -189,7 +244,6 @@ function updateContracts() {
   setOptions("contracts", contracts);
   selectAllOptions("contracts");
   setActivePreset("presetBaseBtn");
-
   render();
 }
 
@@ -235,10 +289,17 @@ function renderMetricCards(filtered) {
   const profits = filtered.map(x => Number(x.profit));
   const total = profits.reduce((a, b) => a + b, 0);
   const avg = profits.length ? total / profits.length : 0;
-  const winRate = profits.length ? (profits.filter(x => x > 0).length / profits.length) * 100 : 0;
+  const winRate = profits.length
+    ? (profits.filter(x => x > 0).length / profits.length) * 100
+    : 0;
 
-  const best = filtered.length ? [...filtered].sort((a, b) => b.profit - a.profit)[0] : null;
-  const worst = filtered.length ? [...filtered].sort((a, b) => a.profit - b.profit)[0] : null;
+  const best = filtered.length
+    ? [...filtered].sort((a, b) => b.profit - a.profit)[0]
+    : null;
+
+  const worst = filtered.length
+    ? [...filtered].sort((a, b) => a.profit - b.profit)[0]
+    : null;
 
   document.getElementById("profit").innerText = `${total.toFixed(2)} €/MWh`;
   document.getElementById("contractCount").innerText = `${filtered.length}`;
@@ -249,13 +310,13 @@ function renderMetricCards(filtered) {
   const worstEl = document.getElementById("worstContract");
 
   if (best) {
-    bestEl.innerHTML = `<span class="positive-text">${best.date}<br>${best.contract}<br>${Number(best.profit).toFixed(2)} €/MWh</span>`;
+    bestEl.innerHTML = `${best.date}<br>${best.contract}<br>${Number(best.profit).toFixed(2)} €/MWh`;
   } else {
     bestEl.innerText = "-";
   }
 
   if (worst) {
-    worstEl.innerHTML = `<span class="negative-text">${worst.date}<br>${worst.contract}<br>${Number(worst.profit).toFixed(2)} €/MWh</span>`;
+    worstEl.innerHTML = `${worst.date}<br>${worst.contract}<br>${Number(worst.profit).toFixed(2)} €/MWh`;
   } else {
     worstEl.innerText = "-";
   }
@@ -271,7 +332,6 @@ function renderBessStrategy(filtered) {
   }
 
   const ordered = [...filtered].sort(compareRowsChronologically);
-
   let bestSpread = -Infinity;
   let bestChargeRow = null;
   let bestDischargeRow = null;
@@ -289,6 +349,7 @@ function renderBessStrategy(filtered) {
 
     if (minBuySoFar) {
       const spread = sellPrice - Number(minBuySoFar.buy_price);
+
       if (spread > bestSpread && compareRowsChronologically(minBuySoFar, row) <= 0) {
         bestSpread = spread;
         bestChargeRow = minBuySoFar;
@@ -303,11 +364,9 @@ function renderBessStrategy(filtered) {
   }
 
   bessEl.innerHTML = `
-    <strong>Charge:</strong> ${bestChargeRow.date} | ${bestChargeRow.contract} at ${Number(bestChargeRow.buy_price).toFixed(2)} €/MWh
-    <br>
-    <strong>Discharge:</strong> ${bestDischargeRow.date} | ${bestDischargeRow.contract} at ${Number(bestDischargeRow.sell_price).toFixed(2)} €/MWh
-    <br>
-    <strong>Single-cycle spread:</strong> <span class="${bestSpread >= 0 ? 'positive-text' : 'negative-text'}">${bestSpread.toFixed(2)} €/MWh</span>
+    Charge: ${bestChargeRow.date} | ${bestChargeRow.contract} at ${Number(bestChargeRow.buy_price).toFixed(2)} €/MWh<br>
+    Discharge: ${bestDischargeRow.date} | ${bestDischargeRow.contract} at ${Number(bestDischargeRow.sell_price).toFixed(2)} €/MWh<br>
+    Single-cycle spread: ${bestSpread.toFixed(2)} €/MWh
   `;
 }
 
@@ -322,8 +381,8 @@ function computeQuarterHours(contractLabel) {
 
   let startMins = sh * 60 + sm;
   let endMins = eh * 60 + em;
-  if (endMins < startMins) endMins += 24 * 60;
 
+  if (endMins < startMins) endMins += 24 * 60;
   return (endMins - startMins) / 60;
 }
 
@@ -340,8 +399,15 @@ function renderMultiCycleBess(filtered) {
   const powerMW = Number(document.getElementById("bessPower").value || 1);
   const efficiency = Number(document.getElementById("bessEfficiency").value || 0.9);
 
-  if (!Number.isFinite(capacityMWh) || !Number.isFinite(powerMW) || !Number.isFinite(efficiency) ||
-      capacityMWh <= 0 || powerMW <= 0 || efficiency <= 0 || efficiency > 1) {
+  if (
+    !Number.isFinite(capacityMWh) ||
+    !Number.isFinite(powerMW) ||
+    !Number.isFinite(efficiency) ||
+    capacityMWh <= 0 ||
+    powerMW <= 0 ||
+    efficiency <= 0 ||
+    efficiency > 1
+  ) {
     el.innerHTML = "Invalid BESS settings.";
     return;
   }
@@ -355,7 +421,11 @@ function renderMultiCycleBess(filtered) {
   let throughputMWh = 0;
 
   const avgFutureSell = ordered.map((_, i) => {
-    const future = ordered.slice(i + 1).map(r => Number(r.sell_price)).filter(Number.isFinite);
+    const future = ordered
+      .slice(i + 1)
+      .map(r => Number(r.sell_price))
+      .filter(Number.isFinite);
+
     if (!future.length) return null;
     return future.reduce((a, b) => a + b, 0) / future.length;
   });
@@ -363,13 +433,11 @@ function renderMultiCycleBess(filtered) {
   ordered.forEach((row, i) => {
     const durationH = computeQuarterHours(row.contract);
     const maxEnergyThisStep = Math.min(powerMW * durationH, capacityMWh);
-
     const buyPrice = Number(row.buy_price);
     const sellPrice = Number(row.sell_price);
-
     const futureAvgSell = avgFutureSell[i];
-
     const chargeThreshold = futureAvgSell !== null ? futureAvgSell * efficiency : null;
+
     const shouldCharge =
       futureAvgSell !== null &&
       soc < capacityMWh &&
@@ -377,15 +445,12 @@ function renderMultiCycleBess(filtered) {
 
     const shouldDischarge =
       soc > 0 &&
-      (
-        futureAvgSell === null ||
-        sellPrice >= futureAvgSell ||
-        i >= ordered.length - 4
-      );
+      (futureAvgSell === null || sellPrice >= futureAvgSell || i >= ordered.length - 4);
 
     if (shouldCharge) {
       const availableRoom = capacityMWh - soc;
       const chargeMWh = Math.min(maxEnergyThisStep, availableRoom);
+
       if (chargeMWh > 0) {
         soc += chargeMWh;
         totalPnL -= chargeMWh * buyPrice;
@@ -394,6 +459,7 @@ function renderMultiCycleBess(filtered) {
       }
     } else if (shouldDischarge) {
       const dischargeRawMWh = Math.min(maxEnergyThisStep, soc);
+
       if (dischargeRawMWh > 0) {
         const deliveredMWh = dischargeRawMWh * efficiency;
         soc -= dischargeRawMWh;
@@ -405,90 +471,97 @@ function renderMultiCycleBess(filtered) {
   });
 
   el.innerHTML = `
-    <strong>Estimated multi-cycle P&amp;L:</strong>
-    <span class="${totalPnL >= 0 ? 'positive-text' : 'negative-text'}">${totalPnL.toFixed(2)} €</span>
-    <br>
-    <strong>Charge actions:</strong> ${chargeActions}
-    <br>
-    <strong>Discharge actions:</strong> ${dischargeActions}
-    <br>
-    <strong>Total throughput:</strong> ${throughputMWh.toFixed(2)} MWh
-    <br>
-    <strong>Ending state of charge:</strong> ${soc.toFixed(2)} MWh
+    Estimated multi-cycle P&L: ${totalPnL.toFixed(2)} €<br>
+    Charge actions: ${chargeActions}<br>
+    Discharge actions: ${dischargeActions}<br>
+    Total throughput: ${throughputMWh.toFixed(2)} MWh<br>
+    Ending state of charge: ${soc.toFixed(2)} MWh
   `;
 }
 
 function renderHistogram(filtered) {
   const profits = filtered.map(x => Number(x.profit));
 
-  Plotly.newPlot("histogram", [{
-    x: profits,
-    type: "histogram",
-    marker: { color: "#2563eb" },
-    hovertemplate: "Profit: %{x:.2f} €/MWh<br>Count: %{y}<extra></extra>"
-  }], {
-    margin: { l: 60, r: 20, t: 20, b: 60 },
-    paper_bgcolor: "white",
-    plot_bgcolor: "white",
-    xaxis: { title: "Profit per row (€/MWh)", gridcolor: "#eaecf0" },
-    yaxis: { title: "Count", gridcolor: "#eaecf0" }
-  }, {
-    responsive: true,
-    displayModeBar: false
-  });
+  Plotly.newPlot(
+    "histogram",
+    [
+      {
+        x: profits,
+        type: "histogram",
+        marker: { color: "#2563eb" },
+        hovertemplate: "Profit: %{x:.2f} €/MWh<br>Count: %{y}"
+      }
+    ],
+    {
+      margin: { l: 60, r: 20, t: 20, b: 60 },
+      paper_bgcolor: "white",
+      plot_bgcolor: "white",
+      xaxis: { title: "Profit per row (€/MWh)", gridcolor: "#eaecf0" },
+      yaxis: { title: "Count", gridcolor: "#eaecf0" }
+    },
+    { responsive: true, displayModeBar: false }
+  );
 }
 
 function renderContractBar(filtered) {
   const labels = filtered.map(x => `${x.date} | ${x.contract}`);
   const profits = filtered.map(x => Number(x.profit));
-  const colors = profits.map(v => v >= 0 ? "#16a34a" : "#dc2626");
+  const colors = profits.map(v => (v >= 0 ? "#16a34a" : "#dc2626"));
 
-  Plotly.newPlot("contractBar", [{
-    x: labels,
-    y: profits,
-    type: "bar",
-    marker: { color: colors },
-    hovertemplate: "%{x}<br>Profit: %{y:.2f} €/MWh<extra></extra>"
-  }], {
-    margin: { l: 60, r: 20, t: 20, b: 120 },
-    paper_bgcolor: "white",
-    plot_bgcolor: "white",
-    xaxis: { title: "Date | Contract", tickangle: -60, gridcolor: "#eaecf0" },
-    yaxis: { title: "Profit (€/MWh)", gridcolor: "#eaecf0" }
-  }, {
-    responsive: true,
-    displayModeBar: false
-  });
+  Plotly.newPlot(
+    "contractBar",
+    [
+      {
+        x: labels,
+        y: profits,
+        type: "bar",
+        marker: { color: colors },
+        hovertemplate: "%{x}<br>Profit: %{y:.2f} €/MWh"
+      }
+    ],
+    {
+      margin: { l: 60, r: 20, t: 20, b: 120 },
+      paper_bgcolor: "white",
+      plot_bgcolor: "white",
+      xaxis: { title: "Date | Contract", tickangle: -60, gridcolor: "#eaecf0" },
+      yaxis: { title: "Profit (€/MWh)", gridcolor: "#eaecf0" }
+    },
+    { responsive: true, displayModeBar: false }
+  );
 }
 
 function renderCumulativeCurve(filtered) {
   const labels = filtered.map(x => `${x.date} | ${x.contract}`);
   const profits = filtered.map(x => Number(x.profit));
-
   const cumulative = [];
+
   profits.reduce((acc, val, i) => {
     const next = acc + val;
     cumulative[i] = next;
     return next;
   }, 0);
 
-  Plotly.newPlot("cumulativeCurve", [{
-    x: labels,
-    y: cumulative,
-    mode: "lines+markers",
-    line: { color: "#16a34a", width: 3 },
-    marker: { size: 6 },
-    hovertemplate: "%{x}<br>Cumulative: %{y:.2f} €/MWh<extra></extra>"
-  }], {
-    margin: { l: 60, r: 20, t: 20, b: 120 },
-    paper_bgcolor: "white",
-    plot_bgcolor: "white",
-    xaxis: { title: "Date | Contract", tickangle: -60, gridcolor: "#eaecf0" },
-    yaxis: { title: "Cumulative P&L (€/MWh)", gridcolor: "#eaecf0" }
-  }, {
-    responsive: true,
-    displayModeBar: false
-  });
+  Plotly.newPlot(
+    "cumulativeCurve",
+    [
+      {
+        x: labels,
+        y: cumulative,
+        mode: "lines+markers",
+        line: { color: "#16a34a", width: 3 },
+        marker: { size: 6 },
+        hovertemplate: "%{x}<br>Cumulative: %{y:.2f} €/MWh"
+      }
+    ],
+    {
+      margin: { l: 60, r: 20, t: 20, b: 120 },
+      paper_bgcolor: "white",
+      plot_bgcolor: "white",
+      xaxis: { title: "Date | Contract", tickangle: -60, gridcolor: "#eaecf0" },
+      yaxis: { title: "Cumulative P&L (€/MWh)", gridcolor: "#eaecf0" }
+    },
+    { responsive: true, displayModeBar: false }
+  );
 }
 
 function renderHeatmap(filtered) {
@@ -515,24 +588,59 @@ function renderHeatmap(filtered) {
     });
   });
 
-  Plotly.newPlot("heatmap", [{
-    z: matrix,
-    x: dates,
-    y: contracts,
-    type: "heatmap",
-    colorscale: "RdYlGn",
-    reversescale: false,
-    hovertemplate: "Date: %{x}<br>Contract: %{y}<br>Avg Profit: %{z:.2f} €/MWh<extra></extra>"
-  }], {
-    margin: { l: 90, r: 20, t: 20, b: 80 },
-    paper_bgcolor: "white",
-    plot_bgcolor: "white",
-    xaxis: { title: "Date" },
-    yaxis: { title: "Quarter-hour contract" }
-  }, {
-    responsive: true,
-    displayModeBar: false
-  });
+  Plotly.newPlot(
+    "heatmap",
+    [
+      {
+        z: matrix,
+        x: dates,
+        y: contracts,
+        type: "heatmap",
+        colorscale: "RdYlGn",
+        reversescale: false,
+        hovertemplate: "Date: %{x}<br>Contract: %{y}<br>Avg Profit: %{z:.2f} €/MWh"
+      }
+    ],
+    {
+      margin: { l: 90, r: 20, t: 20, b: 80 },
+      paper_bgcolor: "white",
+      plot_bgcolor: "white",
+      xaxis: { title: "Date" },
+      yaxis: { title: "Quarter-hour contract" }
+    },
+    { responsive: true, displayModeBar: false }
+  );
+}
+
+function buildMiniTable(rows) {
+  return `
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Contract</th>
+          <th>Buy</th>
+          <th>Sell</th>
+          <th>Profit</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${rows
+          .map(
+            d => `
+              <tr>
+                <td>${d.date}</td>
+                <td>${d.contract}</td>
+                <td>${Number(d.buy_price).toFixed(2)}</td>
+                <td>${Number(d.sell_price).toFixed(2)}</td>
+                <td>${Number(d.profit).toFixed(2)}</td>
+              </tr>
+            `
+          )
+          .join("")}
+      </tbody>
+    </table>
+  `;
 }
 
 function renderTopBottomTables(filtered) {
@@ -543,36 +651,9 @@ function renderTopBottomTables(filtered) {
   document.getElementById("bottomContracts").innerHTML = buildMiniTable(bottom10);
 }
 
-function buildMiniTable(rows) {
-  return `
-    <table>
-      <thead>
-        <tr>
-          <th>Date</th>
-          <th>Contract</th>
-          <th>Buy</th>
-          <th>Sell</th>
-          <th>Profit</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${rows.map(d => `
-          <tr>
-            <td>${d.date}</td>
-            <td>${d.contract}</td>
-            <td>${Number(d.buy_price).toFixed(2)}</td>
-            <td>${Number(d.sell_price).toFixed(2)}</td>
-            <td>${Number(d.profit).toFixed(2)}</td>
-          </tr>
-        `).join("")}
-      </tbody>
-    </table>
-  `;
-}
-
 function renderBreakdownTable(filtered) {
   document.getElementById("table").innerHTML = `
-    <table>
+    <table class="data-table">
       <thead>
         <tr>
           <th>Date</th>
@@ -583,15 +664,19 @@ function renderBreakdownTable(filtered) {
         </tr>
       </thead>
       <tbody>
-        ${filtered.map(d => `
-          <tr>
-            <td>${d.date}</td>
-            <td>${d.contract}</td>
-            <td>${Number(d.buy_price).toFixed(2)}</td>
-            <td>${Number(d.sell_price).toFixed(2)}</td>
-            <td>${Number(d.profit).toFixed(2)}</td>
-          </tr>
-        `).join("")}
+        ${filtered
+          .map(
+            d => `
+              <tr>
+                <td>${d.date}</td>
+                <td>${d.contract}</td>
+                <td>${Number(d.buy_price).toFixed(2)}</td>
+                <td>${Number(d.sell_price).toFixed(2)}</td>
+                <td>${Number(d.profit).toFixed(2)}</td>
+              </tr>
+            `
+          )
+          .join("")}
       </tbody>
     </table>
   `;
@@ -599,7 +684,6 @@ function renderBreakdownTable(filtered) {
 
 function render() {
   const filtered = getFilteredRows();
-
   renderMetricCards(filtered);
   renderBessStrategy(filtered);
   renderMultiCycleBess(filtered);
@@ -616,7 +700,6 @@ document.getElementById("rule").addEventListener("change", updateContracts);
 document.getElementById("direction").addEventListener("change", render);
 document.getElementById("startDate").addEventListener("change", updateContracts);
 document.getElementById("endDate").addEventListener("change", updateContracts);
-
 document.getElementById("bessCapacity").addEventListener("change", render);
 document.getElementById("bessPower").addEventListener("change", render);
 document.getElementById("bessEfficiency").addEventListener("change", render);
