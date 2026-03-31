@@ -61,8 +61,12 @@ def normalize(df, market_name):
     else:
         out["end"] = pd.NaT
 
-    if start_col:
-        out["date"] = out["start"].dt.date.astype(str)
+if date_col:
+    out["date"] = pd.to_datetime(out[date_col], errors="coerce").dt.date.astype(str)
+elif start_col:
+    out["date"] = out["start"].dt.date.astype(str)
+else:
+    out["date"] = "unknown"
         out["contract"] = out["start"].dt.strftime("%H:%M") + "-" + out["end"].dt.strftime("%H:%M")
         out["contract_sort"] = out["start"].dt.hour * 60 + out["start"].dt.minute
     else:
