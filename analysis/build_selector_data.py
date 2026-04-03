@@ -130,12 +130,12 @@ def normalize(df: pd.DataFrame | None, market_name: str) -> pd.DataFrame | None:
         out["start"] = (
             pd.to_datetime(out[utc_start_col], errors="coerce", utc=True)
             .dt.tz_convert("Europe/Paris")
-            .dt.tz_localize(None)
+            
         )
     elif cet_start_col:
         # Parse CET timestamps (they include offset such as +01:00/+02:00)
         out["start"] = pd.to_datetime(out[cet_start_col], errors="coerce", utc=True)
-        out["start"] = out["start"].dt.tz_convert("Europe/Paris").dt.tz_localize(None)
+        out["start"] = out["start"].dt.tz_convert("Europe/Paris")
     else:
         out["start"] = pd.NaT
 
@@ -143,11 +143,11 @@ def normalize(df: pd.DataFrame | None, market_name: str) -> pd.DataFrame | None:
         out["end"] = (
             pd.to_datetime(out[utc_end_col], errors="coerce", utc=True)
             .dt.tz_convert("Europe/Paris")
-            .dt.tz_localize(None)
+            
         )
     elif cet_end_col:
         out["end"] = pd.to_datetime(out[cet_end_col], errors="coerce", utc=True)
-        out["end"] = out["end"].dt.tz_convert("Europe/Paris").dt.tz_localize(None)
+        out["end"] = out["end"].dt.tz_convert("Europe/Paris")
     elif utc_start_col:
         # If end is missing but start is present, assume 15‑minute interval
         out["end"] = out["start"] + pd.Timedelta(minutes=15)
