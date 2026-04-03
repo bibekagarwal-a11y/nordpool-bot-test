@@ -202,6 +202,14 @@ function updateContracts() {
   const area = document.getElementById("area").value;
   const rule = document.getElementById("rule").value;
   const startDate = document.getElementById("startDate").value;
+    function isDstStart(dateStr) {
+    const date = new Date(dateStr + "T00:00:00");
+    const year = date.getFullYear();
+    const lastDay = new Date(year, 2, 31);
+    const lastSunday = new Date(year, 2, 31 - lastDay.getDay());
+    return date.getMonth() === 2 && date.getDate() === lastSunday.getDate();
+  }
+
   const endDate = document.getElementById("endDate").value;
 
   const filtered = data
@@ -211,15 +219,19 @@ function updateContracts() {
       if (startDate && d.date < startDate) return false;
       if (endDate && d.date > endDate) return false;
       return true;
-    })
+  
+  })
     .sort(compareRowsChronologically);
 
-  const contracts = unique(filtered.map((x) => x.contract));
-  setOptions("contracts", contracts);
+  const const contracts = unique(filtered.map((x) => x.contract));
+  let filteredContracts = contracts;
+  if (startDate && isDstStart(startDate)) {
+    filteredContracts = contracts.filter((c) => !c.startsWith("02:"));
+  }
+  setOptions("contracts", filteredContracts);
   selectAllOptions("contracts");
   setActivePreset("presetBaseBtn");
   render();
-}
 
 function getFilteredRows() {
   const area = document.getElementById("area").value;
