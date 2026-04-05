@@ -223,7 +223,7 @@ function updateContracts() {
   })
     .sort(compareRowsChronologically);
 
-  const const contracts = unique(filtered.map((x) => x.contract));
+  const contracts = unique(filtered.map((x) => x.contract));
   let filteredContracts = contracts;
   if (startDate && isDstStart(startDate)) {
     filteredContracts = contracts.filter((c) => !c.startsWith("02:"));
@@ -232,6 +232,7 @@ function updateContracts() {
   selectAllOptions("contracts");
   setActivePreset("presetBaseBtn");
   render();
+}
 
 function getFilteredRows() {
   const area = document.getElementById("area").value;
